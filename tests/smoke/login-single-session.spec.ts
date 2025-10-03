@@ -1,6 +1,7 @@
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
 import { LoginPage } from '../../pages/login.page';
 import { CredentialManager } from '../../utils/credential-manager';
+import { AuthHelper } from '../../helpers/auth.helper';
 
 // This test file uses a single browser session for all tests
 test.describe('Login Tests - Single Session @smoke', () => {
@@ -48,11 +49,8 @@ test.describe('Login Tests - Single Session @smoke', () => {
   });
 
   test('Step 2: Login with valid credentials', async () => {
-    const credentials = CredentialManager.getCredentials();
-    console.log(`🔐 Attempting login with: ${credentials.username}`);
-
-    // Perform login
-    await loginPage.login(credentials.username, credentials.password);
+    // Use AuthHelper to login (credentials from .env.local)
+    await AuthHelper.login(page);
 
     // Verify successful login
     await loginPage.verifySuccessfulLogin();

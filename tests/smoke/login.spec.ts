@@ -1,6 +1,7 @@
 import { test, expect, chromium, Browser, Page } from '@playwright/test';
 import { LoginPage } from '../../pages/login.page';
 import { CredentialManager } from '../../utils/credential-manager';
+import { AuthHelper } from '../../helpers/auth.helper';
 
 test.describe('Login Tests @smoke', () => {
   let browser: Browser;
@@ -40,26 +41,23 @@ test.describe('Login Tests @smoke', () => {
     expect(isLoginPage).toBeTruthy();
 
     // Check for email input field
-    const emailInput = page.locator('input[placeholder="EMAIL"]');
-    await expect(emailInput).toBeVisible();
+    const isUsernameVisible = await loginPage.isUsernameInputVisible();
+    expect(isUsernameVisible).toBeTruthy();
 
     // Check for password input field
-    const passwordInput = page.locator('input[placeholder="PASSWORD"]');
-    await expect(passwordInput).toBeVisible();
+    const isPasswordVisible = await loginPage.isPasswordInputVisible();
+    expect(isPasswordVisible).toBeTruthy();
 
     // Check for Sign In button
-    const signInButton = page.locator('button:has-text("SIGN IN")');
-    await expect(signInButton).toBeVisible();
+    const isLoginButtonVisible = await loginPage.isLoginButtonVisible();
+    expect(isLoginButtonVisible).toBeTruthy();
 
     console.log('✅ All login page elements are visible');
   });
 
   test('Step 2: Login successfully', async () => {
-    // Get credentials from environment variables
-    const credentials = CredentialManager.getCredentials();
-
-    // Since we're already on login page from previous test, just login
-    await loginPage.login(credentials.username, credentials.password);
+    // Use AuthHelper to login (credentials from .env.local)
+    await AuthHelper.login(page);
 
     // Wait for navigation to complete
     await page.waitForLoadState('networkidle');
@@ -69,48 +67,16 @@ test.describe('Login Tests @smoke', () => {
 
     // Verify we're logged in (not on login page anymore)
     const currentUrl = page.url();
+    const baseUrl = CredentialManager.getBaseUrl();
 
     // Check that we're no longer on the login page
     expect(currentUrl).not.toContain('login');
-    expect(currentUrl).toContain('clinical.qa1.curantissolutions.com');
 
-    // Log success
-    console.log(`✅ Successfully logged in as ${credentials.username}`);
+    // Verify we're on the correct environment URL
+    const urlHost = new URL(baseUrl).host;
+    expect(currentUrl).toContain(urlHost);
+
     console.log(`📍 Current URL after login: ${currentUrl}`);
-
-    // Look for common elements that appear after login
-    // This could be a navigation menu, user profile, logout button, etc.
-    const possibleDashboardElements = [
-      'button:has-text("Logout")',
-      'button:has-text("Sign Out")',
-      '[data-testid="dashboard"]',
-      'nav',
-      '.dashboard',
-      '#dashboard',
-      '[role="navigation"]',
-      'a:has-text("Dashboard")',
-      'a:has-text("Home")'
-    ];
-
-    // Check if any dashboard/logged-in elements are visible
-    let foundElement = null;
-    for (const selector of possibleDashboardElements) {
-      try {
-        const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 1000 })) {
-          foundElement = selector;
-          break;
-        }
-      } catch {
-        // Element not found, continue checking
-      }
-    }
-
-    if (foundElement) {
-      console.log(`✅ Found logged-in element: ${foundElement}`);
-    } else {
-      console.log('⚠️ No specific dashboard elements found, but URL changed from login');
-    }
 
     // Take a screenshot of the page after login
     await page.screenshot({
@@ -118,11 +84,9 @@ test.describe('Login Tests @smoke', () => {
       fullPage: true
     });
 
-    // Log what's visible on the page
-    const pageContent = await page.content();
-    const hasLoginForm = pageContent.includes('EMAIL') && pageContent.includes('PASSWORD');
-
-    if (hasLoginForm) {
+    // Verify login form is not visible (we're logged in)
+    const isStillOnLoginPage = await loginPage.isLoginPageDisplayed();
+    if (isStillOnLoginPage) {
       console.log('❌ Still on login page - login may have failed');
       throw new Error('Login failed - still showing login form');
     } else {
@@ -138,10 +102,12 @@ test.describe('Login Tests @smoke', () => {
   test('Step 3: Verify user stays logged in', async () => {
     // Since we're using the same browser, we should still be logged in
     const currentUrl = page.url();
+    const baseUrl = CredentialManager.getBaseUrl();
+    const urlHost = new URL(baseUrl).host;
 
     // Verify we're not back on the login page
     expect(currentUrl).not.toContain('login');
-    expect(currentUrl).toContain('clinical.qa1.curantissolutions.com');
+    expect(currentUrl).toContain(urlHost);
 
     console.log(`✅ User is still logged in at: ${currentUrl}`);
 
@@ -153,76 +119,18 @@ test.describe('Login Tests @smoke', () => {
   });
 
   test('Step 4: Logout from the application', async () => {
-    // First, make sure we're still on the dashboard
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
     // Take a screenshot before attempting logout
     await page.screenshot({
       path: `screenshots/before-logout-${Date.now()}.png`,
       fullPage: true
     });
 
-    // Step 1: Click on the user profile button (btn-user-profile)
-    const userProfileButton = page.locator('[class*="btn-user-profile"], #btn-user-profile, button.btn-user-profile, [data-testid="user-profile"]').first();
-
-    // Wait for and click the user profile button
-    await userProfileButton.waitFor({ state: 'visible', timeout: 5000 });
-    await userProfileButton.click();
-    console.log('✅ Clicked on user profile button');
-
-    // Wait for the menu to appear
-    await page.waitForTimeout(1000);
-
-    // Step 2: Now look for and click the Sign out option
-    const signOutSelectors = [
-      'text="Sign out"',
-      'text="Sign Out"',
-      'text="SIGN OUT"',
-      'button:has-text("Sign out")',
-      'a:has-text("Sign out")',
-      '[aria-label*="Sign out" i]',
-      'li:has-text("Sign out")',
-      'div:has-text("Sign out")'
-    ];
-
-    let signOutButton = null;
-    for (const selector of signOutSelectors) {
-      try {
-        const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 1000 })) {
-          signOutButton = element;
-          console.log(`✅ Found Sign out option with selector: ${selector}`);
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    if (!signOutButton) {
-      throw new Error('Sign out option not found after clicking user profile');
-    }
-
-    // Click the Sign out button
-    await signOutButton.click();
-    console.log('✅ Clicked Sign out button');
-
-    // Wait for navigation back to login page
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    // Use AuthHelper to logout
+    await AuthHelper.logout(page);
 
     // Verify we're back on the login page
-    const currentUrl = page.url();
     const loginPageVisible = await loginPage.isLoginPageDisplayed();
-
-    // Check if we're back on login page
     expect(loginPageVisible).toBeTruthy();
-    console.log(`✅ Successfully logged out, back at: ${currentUrl}`);
-
-    // Verify login form elements are visible again
-    const emailInput = page.locator('input[placeholder="EMAIL"]');
-    await expect(emailInput).toBeVisible();
     console.log('✅ Login form is displayed after logout');
 
     // Take a screenshot of the login page after logout

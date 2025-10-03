@@ -10,16 +10,42 @@ export interface Credentials {
 
 export class CredentialManager {
   /**
-   * Get credentials for a specific environment and role
+   * Get credentials for a specific environment, tenant, and role
    * @param environment - The environment (dev, qa, staging, prod)
-   * @param role - Optional role specification (admin, user, viewer)
+   * @param role - Optional role specification (MD, RN, SW, HA, etc.)
+   * @param tenant - Optional tenant specification (curantis, integrum, etc.)
    * @returns Credentials object with username and password
    */
-  static getCredentials(environment?: string, role?: string): Credentials {
+  static getCredentials(environment?: string, role?: string, tenant?: string): Credentials {
     const env = environment || process.env.TEST_ENV || 'qa';
     const envKey = env.toUpperCase();
+    const tenantKey = tenant || process.env.TENANT || '';
 
-    // If role is specified, look for role-specific credentials
+    let username: string | undefined;
+    let password: string | undefined;
+
+    // Try tenant-specific credentials first if tenant is provided
+    if (tenantKey) {
+      const tenantEnvKey = tenantKey.toUpperCase();
+
+      // Format: {ENV}_{TENANT}_{ROLE}_USERNAME or {ENV}_{TENANT}_USERNAME
+      const usernameKey = role
+        ? `${envKey}_${tenantEnvKey}_${role.toUpperCase()}_USERNAME`
+        : `${envKey}_${tenantEnvKey}_USERNAME`;
+
+      const passwordKey = role
+        ? `${envKey}_${tenantEnvKey}_${role.toUpperCase()}_PASSWORD`
+        : `${envKey}_${tenantEnvKey}_PASSWORD`;
+
+      username = process.env[usernameKey];
+      password = process.env[passwordKey];
+
+      if (username && password) {
+        return { username, password };
+      }
+    }
+
+    // Fallback to non-tenant-specific credentials (backward compatibility)
     const usernameKey = role
       ? `${envKey}_${role.toUpperCase()}_USERNAME`
       : `${envKey}_USERNAME`;
@@ -28,12 +54,15 @@ export class CredentialManager {
       ? `${envKey}_${role.toUpperCase()}_PASSWORD`
       : `${envKey}_PASSWORD`;
 
-    const username = process.env[usernameKey];
-    const password = process.env[passwordKey];
+    username = process.env[usernameKey];
+    password = process.env[passwordKey];
 
     if (!username || !password) {
+      const tenantInfo = tenantKey ? `, tenant: ${tenantKey}` : '';
+      const roleInfo = role ? `, role: ${role}` : '';
+
       throw new Error(
-        `Credentials not found for environment: ${env}${role ? `, role: ${role}` : ''}. ` +
+        `Credentials not found for environment: ${env}${tenantInfo}${roleInfo}. ` +
         `Please ensure ${usernameKey} and ${passwordKey} are set in your .env.local file.`
       );
     }
@@ -78,5 +107,13 @@ export class CredentialManager {
    */
   static getEnvironment(): string {
     return process.env.TEST_ENV || 'qa';
+  }
+
+  /**
+   * Get the current tenant
+   * @returns The current tenant
+   */
+  static getTenant(): string {
+    return process.env.TENANT || 'curantis';
   }
 }

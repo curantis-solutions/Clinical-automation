@@ -68,8 +68,10 @@ export class LoginPage extends BasePage {
    * Perform a complete login
    * @param username - The username
    * @param password - The password
+   * @param role - Optional role for logging purposes
+   * @param environment - Optional environment for logging purposes
    */
-  async login(username: string, password: string): Promise<void> {
+  async login(username: string, password: string, role?: string, environment?: string): Promise<void> {
     await this.enterUsername(username);
     await this.enterPassword(password);
     await this.clickLogin();
@@ -106,6 +108,30 @@ export class LoginPage extends BasePage {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Check if username input is visible
+   * @returns true if username input is visible
+   */
+  async isUsernameInputVisible(): Promise<boolean> {
+    return await this.isElementVisible(this.selectors.usernameInput);
+  }
+
+  /**
+   * Check if password input is visible
+   * @returns true if password input is visible
+   */
+  async isPasswordInputVisible(): Promise<boolean> {
+    return await this.isElementVisible(this.selectors.passwordInput);
+  }
+
+  /**
+   * Check if login button is visible
+   * @returns true if login button is visible
+   */
+  async isLoginButtonVisible(): Promise<boolean> {
+    return await this.isElementVisible(this.selectors.loginButton);
   }
 
   /**
