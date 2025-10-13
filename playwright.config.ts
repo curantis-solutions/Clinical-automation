@@ -22,12 +22,19 @@ export default defineConfig({
   workers: process.env.CI ? 1 : Number(process.env.WORKERS) || 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ['html', {
-      outputFolder: 'playwright-report',
-      open: process.env.SHOW_REPORT === 'true' ? 'always' : 'never'
-    }],
-    ['list'],
-    ['json', { outputFile: 'reports/test-results.json' }]
+    // Local reporters (uncomment to use for local reporting)
+    // ['html', {
+    //   outputFolder: 'playwright-report',
+    //   open: process.env.SHOW_REPORT === 'true' ? 'always' : 'never'
+    // }],
+    // ['json', { outputFile: 'reports/test-results.json' }],
+
+    // Currents.dev reporter (commented out)
+    // ['@currents/playwright', {
+    //   projectId: 'tkbg1Q',
+    //   recordKey: 'Z2WtoCZ9YllGaWen'
+    // }],
+    ['list'] // Keep list for console output
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {

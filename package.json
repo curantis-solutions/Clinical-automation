@@ -38,6 +38,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@currents/playwright": "^1.17.1",
+    "@faker-js/faker": "^10.0.0",
     "@playwright/test": "^1.40.1",
     "@types/node": "^20.10.5",
     "cross-env": "^7.0.3",

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Sri/Claude-QA-Automation/clinical-cypress-testing/cypress/support/pageObjects/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

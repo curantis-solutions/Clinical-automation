@@ -26,27 +26,53 @@ export abstract class BasePage {
    * Wait for an element to be visible
    * @param selector - The selector for the element
    * @param timeout - Optional timeout in milliseconds
+   * @param throwOnError - If true, throws detailed error when element not found (default: true)
    */
-  async waitForElement(selector: string, timeout?: number): Promise<void> {
-    await this.page.waitForSelector(selector, {
-      state: 'visible',
-      timeout: timeout || 10000
-    });
+  async waitForElement(selector: string, timeout?: number, throwOnError: boolean = true): Promise<void> {
+    try {
+      await this.page.waitForSelector(selector, {
+        state: 'visible',
+        timeout: timeout || 10000
+      });
+    } catch (error) {
+      if (throwOnError) {
+        throw new Error(`❌ Failed to find element: ${selector}\nTimeout: ${timeout || 10000}ms\nError: ${error}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for element and click (with error handling)
+   * @param selector - The selector for the element
+   * @param options - Optional click options
+   */
+  async clickElement(selector: string, options?: { timeout?: number; force?: boolean }): Promise<void> {
+    try {
+      await this.waitForElement(selector, options?.timeout);
+      await this.page.locator(selector).click({ force: options?.force });
+    } catch (error) {
+      throw new Error(`❌ Failed to click element: ${selector}\nError: ${error}`);
+    }
   }
 
   /**
    * Check if an element is visible
    * @param selector - The selector for the element
+   * @param throwOnError - If true, throws error when element not found (default: false)
    * @returns true if element is visible, false otherwise
    */
-  async isElementVisible(selector: string): Promise<boolean> {
+  async isElementVisible(selector: string, throwOnError: boolean = false): Promise<boolean> {
     try {
       await this.page.waitForSelector(selector, {
         state: 'visible',
         timeout: 3000
       });
       return true;
-    } catch {
+    } catch (error) {
+      if (throwOnError) {
+        throw new Error(`Element not found: ${selector}\n${error}`);
+      }
       return false;
     }
   }
@@ -90,9 +116,18 @@ export abstract class BasePage {
    * Fill a form field
    * @param selector - The selector for the input field
    * @param value - The value to fill
+   * @param throwOnError - If true, throws detailed error when element not found (default: true)
    */
-  async fill(selector: string, value: string): Promise<void> {
-    await this.page.fill(selector, value);
+  async fill(selector: string, value: string, throwOnError: boolean = true): Promise<void> {
+    try {
+      await this.waitForElement(selector, 10000, throwOnError);
+      await this.page.fill(selector, value);
+    } catch (error) {
+      if (throwOnError) {
+        throw new Error(`❌ Failed to fill element: ${selector}\nValue: ${value}\nError: ${error}`);
+      }
+      throw error;
+    }
   }
 
   /**

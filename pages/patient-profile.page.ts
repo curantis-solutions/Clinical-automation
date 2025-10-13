@@ -37,6 +37,21 @@ export class PatientProfilePage extends BasePage {
     addOrderingPhysicianBtn: '[data-cy="btn-add-ordering-physician"]',
     sameAsReferringCheckbox: '[data-cy="checkbox-same-as-referrer"]',
     saveOrderingPhysicianBtn: '[data-cy="btn-save"]',
+
+    // Diagnosis
+    diagnosisHeader: "[href*='/patient-details/diagnosis']",
+    addDiagnosis: '[data-cy="btn-add-diagnosis"]',
+    primaryDiagnosis: '#primaryDiagnosisInput > [data-cy="input-primary-diagnosis"]',
+    primaryDiagnosisOptions: (code: string) => `[data-cy="options-primary-diagnosis-${code}"]`,
+    saveDiagnosis: '[data-cy="btn-save"]',
+    cancelDiagnosis: '[data-cy="btn-cancel"]',
+
+    // Admit Patient
+    admitReferralBtn: '[data-cy="btn-admit-patient"]',
+    admitDateInput: '#admitDate',
+    admitDateSubmit: '#inputModalSubmit',
+    pickerToolbarButton: '[class="picker-toolbar-button"] button',
+    statusTab: 'a[href="#/referral-tabs/patient/patient-details/status"]',
   };
 
   constructor(page: Page) {
@@ -201,5 +216,114 @@ export class PatientProfilePage extends BasePage {
     await this.addOrderingPhysician(true);
 
     console.log('✅ Patient Details completed successfully\n');
+  }
+
+  /**
+   * Add Diagnosis
+   * @param primaryDiagnosisText - Text to search for primary diagnosis (e.g., "Malignant")
+   * @param primaryDiagnosisCode - Diagnosis code to select (e.g., "C000")
+   */
+  async addDiagnosis(
+    primaryDiagnosisText: string = 'Malignant',
+    primaryDiagnosisCode: string = 'C000'
+  ): Promise<void> {
+    console.log('\n🩺 Adding Diagnosis...');
+
+    await this.navigateToProfileTab();
+    await this.page.waitForTimeout(3000);
+
+    // Click Diagnosis header/tab
+    await this.page.locator(this.selectors.diagnosisHeader).click();
+    await this.page.waitForTimeout(1000);
+
+    // Click Add Diagnosis
+    await this.page.locator(this.selectors.addDiagnosis).click();
+    await this.page.waitForTimeout(1000);
+
+    // Type primary diagnosis search text
+    await this.page.locator(this.selectors.primaryDiagnosis).fill(primaryDiagnosisCode);
+    await this.page.waitForTimeout(1000);
+
+    // Select diagnosis option
+    await this.page.locator(this.selectors.primaryDiagnosisOptions(primaryDiagnosisCode)).click();
+    await this.page.waitForTimeout(1000);
+
+    // Save diagnosis
+    await this.page.locator(this.selectors.saveDiagnosis).click();
+    await this.page.waitForTimeout(2000);
+
+    console.log(`✅ Diagnosis added: ${primaryDiagnosisCode}\n`);
+  }
+
+  /**
+   * Select date from date picker (ion-picker)
+   * @param date - Date string in MM/DD/YYYY format
+   * Selects in order: Year, Day, Month (as per Cypress implementation)
+   */
+  private async selectDateFromPicker(date: string): Promise<void> {
+    const [month, day, year] = date.split('/');
+
+    // Wait for the picker to be visible
+    await this.page.locator('.picker-columns').waitFor({ state: 'visible' });
+    await this.page.waitForTimeout(500);
+
+    // Select Year (3rd column - index 2)
+    await this.page.locator('.picker-col')
+      .nth(2)
+      .locator('.picker-opt')
+      .filter({ hasText: year })
+      .click({ force: true });
+    await this.page.waitForTimeout(300);
+
+    // Select Day (2nd column - index 1)
+    await this.page.locator('.picker-col')
+      .nth(1)
+      .locator('.picker-opt')
+      .filter({ hasText: day.padStart(2, '0') })
+      .click({ force: true });
+    await this.page.waitForTimeout(300);
+
+    // Select Month (1st column - index 0)
+    await this.page.locator('.picker-col')
+      .nth(0)
+      .locator('.picker-opt')
+      .filter({ hasText: month.padStart(2, '0') })
+      .click({ force: true });
+    await this.page.waitForTimeout(300);
+
+    console.log(`✅ Selected date from picker: ${date}`);
+  }
+
+  /**
+   * Admit patient
+   * @param admitDate - Admit date in MM/DD/YYYY format
+   */
+  async admitPatient(admitDate: string): Promise<void> {
+    console.log(`\n🏥 Admitting patient with date: ${admitDate}...`);
+
+    // Click admit patient button
+    await this.page.locator(this.selectors.admitReferralBtn).click();
+    await this.page.waitForTimeout(1000);
+
+    // Click admit date input
+    await this.page.locator(this.selectors.admitDateInput).click();
+    await this.page.waitForTimeout(1000);
+
+    // Select date from picker
+    await this.selectDateFromPicker(admitDate);
+
+    // Click toolbar button (Done/OK)
+    await this.page.locator(this.selectors.pickerToolbarButton).click();
+    await this.page.waitForTimeout(1000);
+
+    // Submit admit
+    await this.page.locator(this.selectors.admitDateSubmit).click();
+    await this.page.waitForTimeout(1000);
+
+    // Wait for status tab to appear (confirmation of successful admit)
+    await this.page.locator(this.selectors.statusTab).waitFor({ state: 'attached' });
+    await this.page.waitForTimeout(1000);
+
+    console.log('✅ Patient admitted successfully\n');
   }
 }

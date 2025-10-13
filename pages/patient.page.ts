@@ -1,6 +1,7 @@
 import { Page, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import { PatientData, CareType } from '../types/patient.types';
+import { selectDateFormatted } from '@utils/date-helper';
 
 /**
  * Patient Page Object
@@ -12,7 +13,7 @@ export class PatientPage extends BasePage {
     // Patient List
     searchBar: '[data-cy="input-search-patients"]',
     patientItem: (index: number) => `[data-cy="item-patient-${index}"]`,
-
+    PatientchartId:'[data-cy="item-patient-0"] div:nth-child(3)',
     // Add Patient
     addPatientButton: '[data-cy="btn-add-patient"]',
 
@@ -132,6 +133,10 @@ export class PatientPage extends BasePage {
     await this.page.locator(`${this.selectors.dateOfBirth} input`).fill(demographics.dateOfBirth);
     await this.page.locator(`${this.selectors.dateOfBirth} input`).press('Enter');
     await this.page.waitForTimeout(500);
+     await this.page.locator(this.selectors.dateOfBirth).click();
+        await this.page.waitForTimeout(1000);
+        console.log(`Setting start date: ${demographics.dateOfBirth}`);
+        await selectDateFormatted(this.page, demographics.dateOfBirth);
 
     // Gender
     if (demographics.gender === 'Male') {
@@ -246,7 +251,8 @@ export class PatientPage extends BasePage {
 
     // Same Address checkbox (service address same as home)
     if (address.sameAddress) {
-      await this.page.locator(this.selectors.sameAddress).click();
+      await this.page.locator(this.selectors.sameAddress).click({ force: true });
+      await this.page.waitForTimeout(500);
     }
 
     console.log('✅ Filled address info');
@@ -305,6 +311,21 @@ export class PatientPage extends BasePage {
   async verifyPatientInGrid(index: number = 0): Promise<boolean> {
     const patientSelector = this.selectors.patientItem(index);
     return await this.isElementVisible(patientSelector);
+  }
+
+  /**
+   * Get patient chart ID from the grid
+   * @returns Patient chart ID as string, or null if not found
+   */
+  async getPatientChartId(): Promise<string | null> {
+    try {
+      await this.waitForElement(this.selectors.PatientchartId, 10000);
+      const chartIdText = await this.page.locator(this.selectors.PatientchartId).textContent();
+      return chartIdText?.trim() || null;
+    } catch (error) {
+      console.error('Failed to get patient chart ID:', error);
+      return null;
+    }
   }
 
   /**
