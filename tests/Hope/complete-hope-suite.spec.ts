@@ -15,6 +15,8 @@ import { PatientData } from '../../types/patient.types';
 import { setupPatientChartListener, savePatientIdByScenario, getPatientIdByScenario } from '../../utils/api-helper';
 import { DateCalculator, AlertValidator } from '../../utils/hope-helpers';
 import { HOPEVisitWorkflow } from '../../workflows/hope-visit.workflow';
+import { TestDataManager } from '../../utils/test-data-manager';
+import { CredentialManager } from '../../utils/credential-manager';
 import {
   INV_VISIT_CONFIGS,
   HOPE_REFUSE_NO_IMPACT_CONFIG,
@@ -53,9 +55,9 @@ dotenv.config({ path: '.env.local' });
  */
 
 test.describe('Complete HOPE Test Suite - 5 Patient Scenarios', () => {
-  const physicianName = process.env.TEST_PHYSICIAN || 'Dr. Smith';
-  const careTeamName = process.env.TEST_CARE_TEAM || 'Default Team';
-  const userName = process.env.QA_RN_SIGN || 'testuser';
+  const physicianName = TestDataManager.getPhysician();
+  const careTeamName = TestDataManager.getCareTeam();
+  const userName = TestDataManager.getRNSign();
   const todayFormatted = DateCalculator.getTodaysDate();
 
   /**
@@ -89,10 +91,8 @@ test.describe('Complete HOPE Test Suite - 5 Patient Scenarios', () => {
     // Login
     console.log('\n🔐 Logging in...');
     await loginPage.goto();
-    await loginPage.login(
-      process.env.QA_USER_RN || 'testuser',
-      process.env.QA_USER_RN_PWD || 'testpassword'
-    );
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await loginPage.login(credentials.username, credentials.password);
 
     // Add Patient
     console.log(`\n👤 Adding ${scenarioType} patient`);
@@ -283,10 +283,8 @@ test.describe('Complete HOPE Test Suite - 5 Patient Scenarios', () => {
     // Login
     console.log('\n🔐 Logging in...');
     await loginPage.goto();
-    await loginPage.login(
-      process.env.QA_USER_RN || 'testuser',
-      process.env.QA_USER_RN_PWD || 'testpassword'
-    );
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await loginPage.login(credentials.username, credentials.password);
 
     // Search and select patient
     console.log(`\n🔍 Searching for ${scenarioType} patient...`);

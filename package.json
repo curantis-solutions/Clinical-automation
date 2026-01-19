@@ -26,7 +26,17 @@
     "codegen": "playwright codegen",
     "setup:local": "cp .env.example .env.local && echo 'Please update .env.local with your credentials'",
     "playwright:install": "playwright install",
-    "validate:env": "node -e \"require('dotenv').config({ path: '.env.local' }); console.log('Environment loaded successfully');\""
+    "validate:env": "node -e \"require('dotenv').config({ path: '.env.local' }); console.log('Environment loaded successfully');\"",
+    "test:ui": "playwright test --ui",
+    "test:ui:qa": "cross-env TEST_ENV=qa playwright test --ui",
+    "test:inspect": "cross-env PWDEBUG=1 playwright test",
+    "test:trace": "playwright test --trace on --headed",
+    "test:slow": "playwright test --headed --slow-mo=1000",
+    "test:video": "cross-env VIDEO_ON_FAILURE=true playwright test --headed",
+    "test:screenshot": "cross-env SCREENSHOT_ON_FAILURE=true playwright test --headed",
+    "show:trace": "playwright show-trace",
+    "debug:billing": "cross-env PWDEBUG=1 playwright test tests/Hope/billing-patient-search.spec.ts",
+    "ui:billing": "playwright test tests/Hope/billing-patient-search.spec.ts --ui"
   },
   "keywords": [
     "playwright",
@@ -39,7 +49,7 @@
   "license": "ISC",
   "devDependencies": {
     "@currents/playwright": "^1.17.1",
-    "@faker-js/faker": "^10.0.0",
+    "@faker-js/faker": "^8.4.1",
     "@playwright/test": "^1.40.1",
     "@types/node": "^20.10.5",
     "cross-env": "^7.0.3",

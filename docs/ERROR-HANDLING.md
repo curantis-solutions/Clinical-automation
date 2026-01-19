@@ -186,9 +186,50 @@ When a test fails:
 
 ## Example: Complete Error Handling
 
+**Using Fixtures (Recommended):**
 ```typescript
-test('Complete patient workflow with error handling', async ({ page }) => {
+import { test } from '../fixtures/auth.fixture';
+import { executeStep, continueOnError } from '../utils/error-handler';
+
+test('Complete patient workflow with error handling', async ({ loginAsRN }) => {
   // Set timeout for long workflow
+  test.setTimeout(600000);
+
+  const patientPage = new PatientPage(loginAsRN);
+  const benefitsPage = new BenefitsPage(loginAsRN);
+
+  // Step 1: Create patient (critical - will retry)
+  // Note: Login already handled by fixture
+  await executeStep(loginAsRN, 'Create Patient', async () => {
+    await patientPage.addPatient(patientData);
+  }, 3);
+
+  // Step 2: Optional notification check (non-critical)
+  const hasNotification = await continueOnError(
+    async () => {
+      return await loginAsRN.locator('.notification').isVisible();
+    },
+    'Check Notification',
+    loginAsRN
+  );
+
+  if (hasNotification) {
+    console.log('Notification found');
+  }
+
+  // Step 3: Complete benefits (critical with more retries)
+  await executeStep(loginAsRN, 'Complete Benefits', async () => {
+    await benefitsPage.completeBenefitsForm(benefitData);
+  }, 5); // More retries for flaky dropdowns
+});
+```
+
+**Using Manual Login (For Workflow Tests):**
+```typescript
+import { test } from '@playwright/test';
+import { executeStep, continueOnError } from '../utils/error-handler';
+
+test('Complete patient workflow with error handling', async ({ page }) => {
   test.setTimeout(600000);
 
   const loginPage = new LoginPage(page);
@@ -221,7 +262,7 @@ test('Complete patient workflow with error handling', async ({ page }) => {
   // Step 4: Complete benefits (critical with more retries)
   await executeStep(page, 'Complete Benefits', async () => {
     await benefitsPage.completeBenefitsForm(benefitData);
-  }, 5); // More retries for flaky dropdowns
+  }, 5);
 });
 ```
 

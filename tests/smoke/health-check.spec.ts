@@ -1,20 +1,49 @@
+/**
+ * =============================================================================
+ * HEALTH CHECK TESTS - Pre-Authentication Smoke Tests
+ * =============================================================================
+ *
+ * PURPOSE:
+ * Verify application accessibility and basic functionality BEFORE login.
+ * These tests ensure the application is up, responsive, and properly configured.
+ *
+ * TESTS INCLUDED:
+ * 1. Application accessibility (HTTP response check)
+ * 2. Console error detection
+ * 3. Viewport responsiveness (desktop, tablet, mobile)
+ * 4. SSL certificate validation
+ * 5. Page load performance
+ * 6. Meta tag verification
+ *
+ * NOTE:
+ * - These tests do NOT require authentication
+ * - Run with --workers=1 to avoid server overload timeouts
+ * - Uses constants from config/timeouts.ts for consistency
+ *
+ * RUN:
+ *   npx playwright test tests/smoke/health-check.spec.ts --workers=1
+ *
+ * =============================================================================
+ */
+
 import { test, expect } from '@playwright/test';
 import { CredentialManager } from '../../utils/credential-manager';
-import { getEnvironmentConfig } from '../../config/environments';
+// TIMEOUTS: API (30s), SHORT (1s), etc. | VIEWPORTS: desktopLarge, tablet, mobile
+import { TIMEOUTS, VIEWPORTS } from '../../config/timeouts';
 
 test.describe('Health Check Tests @smoke', () => {
 
   test('Application should be accessible', async ({ page }) => {
     // Get the base URL from environment configuration
     const baseUrl = CredentialManager.getBaseUrl();
-    const envConfig = getEnvironmentConfig();
+    const envName = CredentialManager.getEnvironmentName();
 
-    console.log(`Testing ${envConfig.name} environment at: ${baseUrl}`);
+    console.log(`Testing ${envName} environment at: ${baseUrl}`);
 
-    // Navigate to the application
+    // Navigate to the application with extended timeout (30s) for slow networks
     const response = await page.goto(baseUrl, {
       waitUntil: 'networkidle',
-      timeout: 30000
+      timeout: TIMEOUTS.API  // 30000ms - allows for slower API/network responses
     });
 
     // Check that we got a successful response
@@ -48,8 +77,8 @@ test.describe('Health Check Tests @smoke', () => {
       waitUntil: 'networkidle'
     });
 
-    // Wait a bit for any async errors to appear
-    await page.waitForTimeout(2000);
+    // Wait briefly for any async errors to surface
+    await page.waitForTimeout(TIMEOUTS.SHORT);  // 1000ms - quick pause for late console errors
 
     // Check for console errors
     if (consoleErrors.length > 0) {
@@ -72,8 +101,8 @@ test.describe('Health Check Tests @smoke', () => {
   test('Application should have correct viewport and be responsive', async ({ page }) => {
     const baseUrl = CredentialManager.getBaseUrl();
 
-    // Test desktop viewport
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    // Test desktop viewport (1920x1080)
+    await page.setViewportSize(VIEWPORTS.desktopLarge);
     await page.goto(baseUrl);
     await page.waitForLoadState('networkidle');
 
@@ -83,8 +112,8 @@ test.describe('Health Check Tests @smoke', () => {
       fullPage: false
     });
 
-    // Test tablet viewport
-    await page.setViewportSize({ width: 768, height: 1024 });
+    // Test tablet viewport (768x1024)
+    await page.setViewportSize(VIEWPORTS.tablet);
     await page.reload();
     await page.waitForLoadState('networkidle');
 
@@ -94,8 +123,8 @@ test.describe('Health Check Tests @smoke', () => {
       fullPage: false
     });
 
-    // Test mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
+    // Test mobile viewport (375x667)
+    await page.setViewportSize(VIEWPORTS.mobile);
     await page.reload();
     await page.waitForLoadState('networkidle');
 

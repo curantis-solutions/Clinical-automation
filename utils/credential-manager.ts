@@ -13,13 +13,13 @@ export class CredentialManager {
    * Get credentials for a specific environment, tenant, and role
    * @param environment - The environment (dev, qa, staging, prod)
    * @param role - Optional role specification (MD, RN, SW, HA, etc.)
-   * @param tenant - Optional tenant specification (curantis, integrum, etc.)
+   * @param tenant - Optional tenant specification (cth, integrum, etc.)
    * @returns Credentials object with username and password
    */
   static getCredentials(environment?: string, role?: string, tenant?: string): Credentials {
     const env = environment || process.env.TEST_ENV || 'qa';
     const envKey = env.toUpperCase();
-    const tenantKey = tenant || process.env.TENANT || '';
+    const tenantKey = tenant || this.getTenant();
 
     let username: string | undefined;
     let password: string | undefined;
@@ -45,7 +45,7 @@ export class CredentialManager {
       }
     }
 
-    // Fallback to non-tenant-specific credentials (backward compatibility)
+    // Fallback to non-tenant-specific credentials
     const usernameKey = role
       ? `${envKey}_${role.toUpperCase()}_USERNAME`
       : `${envKey}_USERNAME`;
@@ -114,6 +114,22 @@ export class CredentialManager {
    * @returns The current tenant
    */
   static getTenant(): string {
-    return process.env.TENANT || 'curantis';
+    return process.env.TENANT || 'cth';
+  }
+
+  /**
+   * Get the human-readable environment name
+   * @param environment - The environment (dev, qa, staging, prod)
+   * @returns Environment display name
+   */
+  static getEnvironmentName(environment?: string): string {
+    const env = environment || process.env.TEST_ENV || 'qa';
+    const names: Record<string, string> = {
+      dev: 'Development',
+      qa: 'QA',
+      staging: 'Staging',
+      prod: 'Production'
+    };
+    return names[env.toLowerCase()] || 'QA';
   }
 }

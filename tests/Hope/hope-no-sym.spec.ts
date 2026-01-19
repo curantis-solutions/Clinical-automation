@@ -1,15 +1,10 @@
-import { test } from '@playwright/test';
-import * as dotenv from 'dotenv';
-import { LoginPage } from '../../pages/login.page';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages/patient.page';
-import { HopePreviewPage } from '../../pages/hope-preview.page';
+import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objects.fixture';
+import { CredentialManager } from '../../utils/credential-manager';
 import { HOPEVisitWorkflow } from '../../workflows/hope-visit.workflow';
 import { INV_VISIT_CONFIGS, HOPE_NO_SYMPTOMS_CONFIG } from '../../fixtures/hope-fixtures';
 import { loadTestData } from '../../utils/api-helper';
-import { getEnvConfig, logEnvironmentInfo } from '../../utils/env-helper';
-
-dotenv.config({ path: '.env.local' });
+import { TestDataManager } from '../../utils/test-data-manager';
 
 /**
  * HOPE Visit Test - No Preferences with No Symptoms
@@ -20,135 +15,165 @@ dotenv.config({ path: '.env.local' });
  * 3. Validates complete HOPE preview report with alerts
  */
 
-test.describe('HOPE Visit - No Preferences with No Symptoms', () => {
-  test('Perform INV visit and validate HOPE preview - No Symptoms', async ({ page }) => {
-    test.setTimeout(900000); // 15 minutes for complex visit workflow
+// Shared state across tests
+let sharedPage: Page;
+let sharedContext: BrowserContext;
+let pages: PageObjects;
+let hopeVisitWorkflow: HOPEVisitWorkflow;
+let patientId: number | undefined;
 
-    // Maximize browser window to show more content
-    await page.setViewportSize({ width: 1920, height: 1080 });
+test.describe.serial('HOPE Visit - No Preferences with No Symptoms', () => {
 
-    // Get environment-specific configuration
-    const envConfig = getEnvConfig();
-    logEnvironmentInfo();
+  test.beforeAll(async ({ browser }) => {
+    // Create a new browser context with standard settings
+    sharedContext = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      ignoreHTTPSErrors: true,
+      baseURL: CredentialManager.getBaseUrl(),
+    });
+
+    // Create single page instance for all tests
+    sharedPage = await sharedContext.newPage();
+
+    // Set longer timeouts for slower environments
+    sharedPage.setDefaultTimeout(30000);
+    sharedPage.setDefaultNavigationTimeout(30000);
+
+    // Initialize all page objects using the factory
+    pages = createPageObjectsForPage(sharedPage);
+
+    // Initialize workflow
+    hopeVisitWorkflow = new HOPEVisitWorkflow(sharedPage);
 
     // Load test data
     const testData = loadTestData();
-    const patientId = testData.patientId;
+    patientId = testData.patientId;
+  });
+
+  test.afterAll(async () => {
+    if (sharedContext) {
+      await sharedContext.close();
+    }
+  });
+
+  test('Step 01: Login as RN', async () => {
+    test.setTimeout(120000);
+
+    console.log('\n Environment Configuration:');
+    console.log(`   Environment: ${CredentialManager.getEnvironmentName()}`);
+    console.log(`   Base URL: ${CredentialManager.getBaseUrl()}`);
+
+    await pages.login.goto();
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await pages.login.login(credentials.username, credentials.password);
+    await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
+
+    console.log('Step 1 Complete: Logged in successfully');
+  });
+
+  test('Step 02: Search for Patient with No symptoms', async () => {
+    test.setTimeout(120000);
 
     if (!patientId) {
       throw new Error('Patient ID not found. Please run admit-hospice-inv-noimpact.spec.ts first');
     }
 
-    console.log(`📂 Using Patient ID: ${patientId}`);
+    console.log(`Using Patient ID: ${patientId}`);
 
-    // Initialize page objects
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
-    const patientPage = new PatientPage(page);
-    const hopePreviewPage = new HopePreviewPage(page);
-    const hopeVisitWorkflow = new HOPEVisitWorkflow(page);
-
-    // ============================================
-    // Step 1: Login
-    // ============================================
-    console.log('\n🔐 Step 1: Login');
-    await loginPage.goto();
-    await loginPage.login(envConfig.userRN, envConfig.userRNPwd);
-    
-
-    // ============================================
-    // Step 2: Search and Select Patient
-    // ============================================
-    console.log('\n🔍 Step 2: Search for Patient with No symptoms');
-
-    await dashboardPage.goto();
-    await dashboardPage.navigateToModule('Patient');
+    await pages.dashboard.goto();
+    await pages.dashboard.navigateToModule('Patient');
 
     // Search for patient by ID
-    await patientPage.searchPatient(String(patientId));
-    await page.waitForTimeout(5000);
-    await patientPage.getPatientFromGrid(0);
-    await page.waitForTimeout(5000);
+    await pages.patient.searchPatient(String(patientId));
+    await sharedPage.waitForTimeout(5000);
+    await pages.patient.getPatientFromGrid(0);
+    await sharedPage.waitForTimeout(5000);
 
     // Navigate to Care Plan
-    await page.locator('[data-cy="btn-nav-bar-item-care-plan"]').click();
-    await page.waitForTimeout(5000);
+    await sharedPage.locator('[data-cy="btn-nav-bar-item-care-plan"]').click();
+    await sharedPage.waitForTimeout(5000);
 
-    // ============================================
-    // Step 3: Add Initial Nursing Assessment Visit
-    // ============================================
-    console.log('\n🏥 Step 3: Add Initial Nursing Assessment Visit');
+    console.log('Step 2 Complete: Patient found and Care Plan opened');
+  });
+
+  test('Step 03: Add Initial Nursing Assessment Visit', async () => {
+    test.setTimeout(180000);
 
     // TEMPORARILY COMMENTED OUT: Visit creation fails in prod with "page closed" error
-    // Please manually create an "Initial Nursing Assessment" visit for patient 267565 before running this test
+    // Please manually create an "Initial Nursing Assessment" visit for patient before running this test
     // await hopeVisitWorkflow.addHospiceVisit(
     //   'Initial Nursing Assessment',
     //   INV_VISIT_CONFIGS.NO_SYMPTOMS.role
     // );
-    console.log('⚠️ SKIPPING visit creation - assuming visit already exists');
-    await page.waitForTimeout(3000);
-    page.locator('[data-cy="label-visit-id"]').first().click();
+    console.log('SKIPPING visit creation - assuming visit already exists');
+    await sharedPage.waitForTimeout(3000);
+    sharedPage.locator('[data-cy="label-visit-id"]').first().click();
 
-    await page.waitForTimeout(5000);
-    // ============================================
-    // Step 4: Perform INV Visit with HOPE
-    // ============================================
-    console.log('\n📋 Step 4: Perform INV Visit - No Preferences, No Symptoms');
+    await sharedPage.waitForTimeout(5000);
+
+    console.log('Step 3 Complete: INV visit selected');
+  });
+
+  test('Step 04: Perform INV Visit - No Preferences, No Symptoms', async () => {
+    test.setTimeout(600000);
 
     await hopeVisitWorkflow.performInvVisitHope(INV_VISIT_CONFIGS.NO_SYMPTOMS);
 
-    // ============================================
-    // Step 5: Complete and Sign Visit
-    // ============================================
-    console.log('\n✍️ Step 5: Complete and Sign Visit');
+    console.log('Step 4 Complete: INV visit performed');
+  });
 
-    await hopeVisitWorkflow.taskEsignby(envConfig.rnSign);
+  test('Step 05: Complete and Sign Visit', async () => {
+    test.setTimeout(180000);
 
-    console.log('✅ Visit completed and signed');
-    await page.waitForTimeout(5000);
+    const rnSign = TestDataManager.getRNSign();
+    await hopeVisitWorkflow.taskEsignby(rnSign);
 
-    // ============================================
-    // Step 6: Navigate to HOPE Preview
-    // ============================================
-    console.log('\n📊 Step 6: Navigate to HOPE Preview');
+    console.log('Step 5 Complete: Visit completed and signed');
+    await sharedPage.waitForTimeout(5000);
+  });
+
+  test('Step 06: Navigate to HOPE Preview', async () => {
+    test.setTimeout(120000);
 
     // Navigate to HIS tab
-    await page.locator('a[href*="his-record"]').click();
-    await page.waitForTimeout(3000);
+    await sharedPage.locator('a[href*="his-record"]').click();
+    await sharedPage.waitForTimeout(3000);
 
     // Click HOPE Report button
-    await hopePreviewPage.clickHopeReport();
-    await page.waitForTimeout(5000);
+    await pages.hopePreview.clickHopeReport();
+    await sharedPage.waitForTimeout(5000);
 
-    // ============================================
-    // Step 7: Validate Complete HOPE Preview
-    // ============================================
-    console.log('\n✅ Step 7: Validate Complete HOPE Preview Report');
+    console.log('Step 6 Complete: HOPE Preview opened');
+  });
 
-    await hopePreviewPage.validateCompleteHOPEPreview(HOPE_NO_SYMPTOMS_CONFIG as any);
+  test('Step 07: Validate Complete HOPE Preview Report', async () => {
+    test.setTimeout(120000);
 
-    // ============================================
-    // Step 8: Validate Preference Alerts
-    // ============================================
-    console.log('\n🔔 Step 8: Validate Preference Alerts');
+    await pages.hopePreview.validateCompleteHOPEPreview(HOPE_NO_SYMPTOMS_CONFIG as any);
+
+    console.log('Step 7 Complete: HOPE Preview validated');
+  });
+
+  test('Step 08: Validate Preference Alerts', async () => {
+    test.setTimeout(60000);
 
     // Since preferences were "No" (not asked), there should be alerts
-    console.log('🔍 Checking for preference alerts...');
+    console.log('Checking for preference alerts...');
 
-    const previewContent = await page.locator('[data-cy="hope-preview-content"]').textContent();
+    const previewContent = await sharedPage.locator('[data-cy="hope-preview-content"]').textContent();
 
     if (previewContent?.includes('NOT INDICATED') || previewContent?.includes('alert')) {
-      console.log('✅ Preference alerts detected as expected');
+      console.log('Preference alerts detected as expected');
     } else {
-      console.log('⚠️ Alert verification skipped (selector may vary)');
+      console.log('Alert verification skipped (selector may vary)');
     }
 
-    console.log('\n🎉 SUCCESS! HOPE Visit with No symptoms completed and validated!');
-    console.log('📋 Visit Type: Initial Nursing Assessment');
-    console.log('💭 Preferences: No (Not asked - alerts present)');
-    console.log('🌡️ Symptoms: None - All symptoms marked as "not experiencing"');
-    console.log('🩹 Skin: None of above');
-    console.log('💊 Medications: No opioids, bowel regimen documented');
-    console.log('🗣️ Language: French, No interpreter needed');
+    console.log('\n SUCCESS! HOPE Visit with No symptoms completed and validated!');
+    console.log('Visit Type: Initial Nursing Assessment');
+    console.log('Preferences: No (Not asked - alerts present)');
+    console.log('Symptoms: None - All symptoms marked as "not experiencing"');
+    console.log('Skin: None of above');
+    console.log('Medications: No opioids, bowel regimen documented');
+    console.log('Language: French, No interpreter needed');
   });
 });

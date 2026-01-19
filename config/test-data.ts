@@ -25,6 +25,7 @@ export interface TenantTestData {
   receivedBy?: string;         // Name for certifications
   employeeIdMD?: string;       // Employee ID for MD
   employeeIdRN?: string;       // Employee ID for RN
+  rnSign?: string;             // RN signature name for visit sign-offs
 }
 
 /**
@@ -40,9 +41,9 @@ export interface EnvironmentTestData {
 export const testData: Record<string, EnvironmentTestData> = {
   // QA Environment
   qa: {
-    // Curantis tenant in QA
-    curantis: {
-      physician: 'MDcypress',
+    // CTH tenant in QA
+    cth: {
+      physician: 'Cypresslast',
       physicianFullName: 'MDcypress cypresslast',
       physicianWithCredentials: 'cypresslast, MDcypress (MD)',
       careTeam: 'ACypressIDG',
@@ -52,11 +53,12 @@ export const testData: Record<string, EnvironmentTestData> = {
       receivedBy: 'MDcypress cypresslast',
       employeeIdMD: '1000391',
       employeeIdRN: '1000369',
+      rnSign: 'RNCypress cypresslast',
     },
 
     // Integrum tenant in QA
     integrum: {
-      physician: 'MDcypress',
+      physician: 'Cypresslast',
       physicianFullName: 'MDcypress cypresslast',
       physicianWithCredentials: 'cypresslast, MDcypress (MD)',
       careTeam: 'acyIDGQA',
@@ -64,12 +66,13 @@ export const testData: Record<string, EnvironmentTestData> = {
       receivedBy: 'MDcypress cypresslast',
       employeeIdMD: '757472',
       employeeIdRN: '1000369',
+      rnSign: 'RNCypress cypresslast',
     },
   },
 
   // Staging Environment
   staging: {
-    curantis: {
+    cth: {
       physician: 'MDcypress',
       physicianFullName: 'MDcypress cypresslast',
       physicianWithCredentials: 'cypresslast, MDcypress (MD)',
@@ -81,7 +84,7 @@ export const testData: Record<string, EnvironmentTestData> = {
 
   // Production Environment
   prod: {
-    curantis: {
+    cth: {
       physician: 'directorcth',
       physicianFullName: 'MDcypress cypresslast',
       physicianWithCredentials: 'cypresslast, MDcypress (MD)',
@@ -93,7 +96,7 @@ export const testData: Record<string, EnvironmentTestData> = {
 
   // Development Environment
   dev: {
-    curantis: {
+    cth: {
       physician: 'MDcypress',
       physicianFullName: 'MDcypress cypresslast',
       physicianWithCredentials: 'cypresslast, MDcypress (MD)',

@@ -47,14 +47,17 @@ clinical-ui-automation/
 │       └── modal.component.ts
 │
 ├── fixtures/
-│   ├── auth.fixture.ts         # Authentication setup
-│   └── test-data.fixture.ts    # Test data management
+│   ├── auth.fixture.ts         # Pre-authenticated page fixtures
+│   ├── page-objects.fixture.ts # Combined auth + page objects
+│   └── shared-context.fixture.ts # Shared browser context
 │
 ├── utils/
 │   ├── credential-manager.ts   # Manage credentials from .env.local
-│   ├── environment-manager.ts  # Environment configuration
-│   ├── fake-data.ts           # Faker.js integration
-│   └── logger.ts              # Logging utility
+│   ├── test-data-manager.ts    # Test data access
+│   ├── auth.helper.ts          # Logout and session utilities
+│   ├── wait-helper.ts          # Wait utilities
+│   ├── date-helper.ts          # Date utilities
+│   └── api-helper.ts           # API interceptors
 │
 ├── data/
 │   ├── test-users.json        # User role definitions (no passwords)
@@ -313,24 +316,54 @@ export class BasePage {
 
 ```typescript
 // fixtures/auth.fixture.ts
-import { test as base } from '@playwright/test';
+import { test as base, Page } from '@playwright/test';
 import { CredentialManager } from '../utils/credential-manager';
+import { LoginPage } from '../pages/login.page';
 
-export const test = base.extend({
-  authenticatedPage: async ({ page }, use) => {
-    const env = process.env.TEST_ENV || 'dev';
-    const role = process.env.TEST_ROLE || 'user';
+// Create login fixture for any role
+async function createLoginFixture(page: Page, role: string): Promise<Page> {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  const credentials = CredentialManager.getCredentials(undefined, role);
+  await loginPage.login(credentials.username, credentials.password);
+  return page;
+}
 
-    const credentials = CredentialManager.getCredentials(env, role);
-
-    // Perform login
-    await page.goto('/login');
-    await page.fill('#username', credentials.username);
-    await page.fill('#password', credentials.password);
-    await page.click('#login-button');
-
+// Extend base test with pre-authenticated fixtures
+export const test = base.extend<{
+  loginAsRN: Page;
+  loginAsMD: Page;
+  loginAsSW: Page;
+  loginAsHA: Page;
+}>({
+  loginAsRN: async ({ page }, use) => {
+    await createLoginFixture(page, 'RN');
     await use(page);
-  }
+  },
+  loginAsMD: async ({ page }, use) => {
+    await createLoginFixture(page, 'MD');
+    await use(page);
+  },
+  loginAsSW: async ({ page }, use) => {
+    await createLoginFixture(page, 'SW');
+    await use(page);
+  },
+  loginAsHA: async ({ page }, use) => {
+    await createLoginFixture(page, 'HA');
+    await use(page);
+  },
+});
+
+export { expect } from '@playwright/test';
+```
+
+**Usage:**
+```typescript
+import { test } from '../fixtures/auth.fixture';
+
+test('My test', async ({ loginAsRN }) => {
+  // Already logged in as RN
+  await loginAsRN.goto('/patients');
 });
 ```
 

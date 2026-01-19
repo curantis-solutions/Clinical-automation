@@ -21,6 +21,7 @@ export interface TestData {
   patientFirstName?: string;
   patientLastName?: string;
   patientSSN?: string;
+  admitDate?: string;
   testRunTimestamp?: string;
   // Multiple patient IDs for suite tests
   patientIds?: {

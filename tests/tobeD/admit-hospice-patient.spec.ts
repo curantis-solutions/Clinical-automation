@@ -1,18 +1,14 @@
 import { test, expect } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import { faker } from '@faker-js/faker';
-import { LoginPage } from '../../pages/login.page';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages/patient.page';
-import { PatientProfilePage } from '../../pages/patient-profile.page';
-import { CareTeamPage } from '../../pages/care-team.page';
-import { BenefitsPage, BenefitData } from '../../pages/benefits.page';
-import { CertificationsPage, WrittenCertificationData } from '../../pages/certifications.page';
-import { ConsentsPage } from '../../pages/consents.page';
-import { OrderManagementPage } from '../../pages/order-management.page';
+import { createPageObjectsForPage } from '../../fixtures/page-objects.fixture';
+import { BenefitData } from '../../pages/benefits.page';
+import { WrittenCertificationData } from '../../pages/certifications.page';
 import { PatientData } from '../../types/patient.types';
 import { executeStep } from '../../utils/error-handler';
 import { setupPatientChartListener, saveTestData, loadTestData, getPatientId } from '../../utils/api-helper';
+import { TestDataManager } from '../../utils/test-data-manager';
+import { CredentialManager } from '../../utils/credential-manager';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' });
@@ -63,29 +59,19 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
       console.log(`🏥 Care Type: ${response.careType}\n`);
     });
 
-    // Initialize all page objects
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
-    const patientPage = new PatientPage(page);
-    const patientProfilePage = new PatientProfilePage(page);
-    const careTeamPage = new CareTeamPage(page);
-    const benefitsPage = new BenefitsPage(page);
-    const certificationsPage = new CertificationsPage(page);
-    const consentsPage = new ConsentsPage(page);
-    const orderManagementPage = new OrderManagementPage(page);
+    // Initialize all page objects from fixture
+    const pages = createPageObjectsForPage(page);
     const today = new Date();
-    const physicianName = process.env.TEST_PHYSICIAN || 'Dr. Smith';
+    const physicianName = TestDataManager.getPhysician();
     const todayFormatted = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
     // ============================================
     // Step 1: Login (one time for entire flow)
     // ============================================
     await test.step('Step 1: Login to Application', async () => {
       console.log('\n🔐 Logging in...');
-      await loginPage.goto();
-      await loginPage.login(
-        process.env.QA_USER_RN || 'testuser',
-        process.env.QA_USER_RN_PWD || 'testpassword'
-      );
+      await pages.login.goto();
+      const credentials = CredentialManager.getCredentials(undefined, 'RN');
+      await pages.login.login(credentials.username, credentials.password);
     });
 
     // ============================================
@@ -93,8 +79,8 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 2: Navigate to Patients', async () => {
       console.log('\n📋 Step 2: Navigate to Patients');
-      await dashboardPage.goto();
-      await dashboardPage.navigateToModule('Patient');
+      await pages.dashboard.goto();
+      await pages.dashboard.navigateToModule('Patient');
     });
 
     // ============================================
@@ -103,7 +89,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     await test.step('Step 3: Add New Hospice Patient', async () => {
       console.log('\n👤 Step 3: Add Hospice Patient');
 
-      await patientPage.clickAddPatient();
+      await pages.patient.clickAddPatient();
 
       // Generate random patient data using Faker
       patientFirstName = faker.person.firstName();
@@ -145,13 +131,13 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
         },
       };
 
-      await patientPage.selectCareType('Hospice');
-      await patientPage.fillDemographics(patientData);
-      await patientPage.fillAdditionalInfo(patientData);
-      await patientPage.fillContactInfo(patientData);
-      await patientPage.fillAddress(patientData);
-      await patientPage.fillHospiceSpecificFields(false);
-      await patientPage.savePatient();
+      await pages.patient.selectCareType('Hospice');
+      await pages.patient.fillDemographics(patientData);
+      await pages.patient.fillAdditionalInfo(patientData);
+      await pages.patient.fillContactInfo(patientData);
+      await pages.patient.fillAddress(patientData);
+      await pages.patient.fillHospiceSpecificFields(false);
+      await pages.patient.savePatient();
 
       // Wait for API interception to capture patient ID
       await page.waitForTimeout(3000);
@@ -181,14 +167,14 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
       }
 
       console.log(`🔎 Searching for patient by ID: ${patientId}`);
-      await patientPage.searchPatient(String(patientId));
+      await pages.patient.searchPatient(String(patientId));
       await page.waitForTimeout(5000);
 
-      const patientChartId = await patientPage.getPatientChartId();
+      const patientChartId = await pages.patient.getPatientChartId();
       expect(patientChartId).toContain(patientId?.toString() || '');
       console.log(`✅ Patient Chart ID verified: ${patientChartId}`);
 
-      await patientPage.getPatientFromGrid(0);
+      await pages.patient.getPatientFromGrid(0);
     });
 
     // ============================================
@@ -197,7 +183,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     await test.step('Step 5: Complete Patient Details', async () => {
       console.log('\n📋 Step 5: Complete Patient Details');
       console.log(`Using Physician: ${physicianName}`);
-      await patientProfilePage.completePatientDetails(physicianName);
+      await pages.patientProfile.completePatientDetails(physicianName);
     });
 
     // ============================================
@@ -205,8 +191,8 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 6: Complete Care Team', async () => {
       console.log('\n👥 Step 6: Complete Care Team');
-      const careTeamName = process.env.TEST_CARE_TEAM || 'Default Team';
-      await careTeamPage.completeCareTeam(careTeamName);
+      const careTeamName = TestDataManager.getCareTeam();
+      await pages.careTeam.completeCareTeam(careTeamName);
     });
 
     // ============================================
@@ -214,7 +200,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 7: Add Attending Physician', async () => {
       console.log('\n👨‍⚕️ Step 7: Add Attending Physician');
-      await careTeamPage.addAttendingPhysician(physicianName, todayFormatted);
+      await pages.careTeam.addAttendingPhysician(physicianName, todayFormatted);
     });
 
     // ============================================
@@ -222,7 +208,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 8: Add Caregiver', async () => {
       console.log('\n👨‍👩‍👧 Step 8: Add Caregiver');
-      await careTeamPage.addCaregiver({
+      await pages.careTeam.addCaregiver({
         relation: 'Brother',
         firstName: 'John',
         lastName: 'Doe',
@@ -239,7 +225,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 9: Add Order Entry - Level of Care', async () => {
       console.log('\n📝 Step 9: Add Order Entry - Level of Care');
-      await orderManagementPage.addOELOCbytype({
+      await pages.orderManagement.addOELOCbytype({
         role: 'Registered Nurse (RN)',
         physician: physicianName,
         locType: 'Routine Home Care',
@@ -252,7 +238,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     // ============================================
     await test.step('Step 10: Add Diagnosis', async () => {
       console.log('\n🩺 Step 10: Add Diagnosis');
-      await patientProfilePage.addDiagnosis('Malignant', 'C000');
+      await pages.patientProfile.addDiagnosis('Malignant', 'C000');
     });
 
     // ============================================
@@ -277,7 +263,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
         page,
         'Complete Benefits Form',
         async () => {
-          await benefitsPage.completeBenefitsForm(benefitData);
+          await pages.benefits.completeBenefitsForm(benefitData);
           await page.waitForTimeout(8000);
         },
         3 // Retry 3 times
@@ -299,7 +285,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
         narrativeStatement: 'Test narrative statement for certification',
       };
 
-      await certificationsPage.completeWrittenCertification(certificationData);
+      await pages.certifications.completeWrittenCertification(certificationData);
     });
 
     // ============================================
@@ -308,7 +294,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
     await test.step('Step 13: Complete Consents', async () => {
       console.log('\n📝 Step 13: Complete Consents');
       // Using RI consents as per the original test
-      await consentsPage.completeRIConsents();
+      await pages.consents.completeRIConsents();
       await page.waitForTimeout(1000);
     });
 
@@ -323,7 +309,7 @@ test.describe('Admit Hospice Patient - End-to-End Flow', () => {
       admitDate.setDate(admitDate.getDate() - 30);
       const admitDateFormatted = `${String(admitDate.getMonth() + 1).padStart(2, '0')}/${String(admitDate.getDate()).padStart(2, '0')}/${admitDate.getFullYear()}`;
 
-      await patientProfilePage.admitPatient(admitDateFormatted);
+      await pages.patientProfile.admitPatient(admitDateFormatted);
       await page.waitForTimeout(1000);
 
       // Verify Admission

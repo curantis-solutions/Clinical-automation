@@ -1,18 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objects.fixture';
+import { CredentialManager } from '../../utils/credential-manager';
 import * as dotenv from 'dotenv';
 import { faker } from '@faker-js/faker';
-import { LoginPage } from '../../pages/login.page';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages/patient.page';
-import { PatientProfilePage } from '../../pages/patient-profile.page';
-import { CareTeamPage } from '../../pages/care-team.page';
-import { BenefitsPage, BenefitData } from '../../pages/benefits.page';
-import { CertificationsPage, WrittenCertificationData } from '../../pages/certifications.page';
-import { ConsentsPage } from '../../pages/consents.page';
-import { OrderManagementPage } from '../../pages/order-management.page';
+import { BenefitData } from '../../pages/benefits.page';
+import { WrittenCertificationData } from '../../pages/certifications.page';
 import { PatientData } from '../../types/patient.types';
 import { setupPatientChartListener } from '../../utils/api-helper';
 import { DateCalculator, AlertValidator } from '../../utils/hope-helpers';
+import { TestDataManager } from '../../utils/test-data-manager';
 
 dotenv.config({ path: '.env.local' });
 
@@ -25,59 +21,75 @@ dotenv.config({ path: '.env.local' });
  * 3. Validates HUV1 alert (admission + 15 days)
  */
 
-test.describe('Admit Hospice Patient - INV No Impact Symptoms', () => {
-  let patientFirstName: string;
-  let patientLastName: string;
-  let patientId: number | undefined;
-  let admitDateFormatted: string;
+// Shared state across tests
+let sharedPage: Page;
+let sharedContext: BrowserContext;
+let pages: PageObjects;
 
-  test('Admit patient and validate INV/HUV1 alerts - No Impact Symptoms', async ({ page }) => {
-    test.setTimeout(600000);
+// Patient data
+let patientFirstName: string;
+let patientLastName: string;
+let patientId: number | undefined;
+let admitDateFormatted: string;
 
-    // Setup API interception
-    setupPatientChartListener(page, (capturedPatientId, response) => {
-      patientId = capturedPatientId;
-      console.log(`\n🎯 Patient ID captured: ${patientId}`);
+test.describe.serial('Admit Hospice Patient - INV No Impact Symptoms', () => {
+
+  test.beforeAll(async ({ browser }) => {
+    // Create a new browser context with standard settings
+    sharedContext = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      ignoreHTTPSErrors: true,
+      baseURL: CredentialManager.getBaseUrl(),
     });
 
-    // Initialize page objects
-    const loginPage = new LoginPage(page);
-    const dashboardPage = new DashboardPage(page);
-    const patientPage = new PatientPage(page);
-    const patientProfilePage = new PatientProfilePage(page);
-    const careTeamPage = new CareTeamPage(page);
-    const benefitsPage = new BenefitsPage(page);
-    const certificationsPage = new CertificationsPage(page);
-    const consentsPage = new ConsentsPage(page);
-    const orderManagementPage = new OrderManagementPage(page);
-    const alertValidator = new AlertValidator(page);
+    // Create single page instance for all tests
+    sharedPage = await sharedContext.newPage();
 
-    const physicianName = process.env.TEST_PHYSICIAN || 'Dr. Smith';
+    // Set longer timeouts for slower environments
+    sharedPage.setDefaultTimeout(30000);
+    sharedPage.setDefaultNavigationTimeout(30000);
+
+    // Initialize all page objects using the factory
+    pages = createPageObjectsForPage(sharedPage);
+  });
+
+  test.afterAll(async () => {
+    if (sharedContext) {
+      await sharedContext.close();
+    }
+  });
+
+  test('Step 01: Login as RN', async () => {
+    test.setTimeout(120000);
+
+    await pages.login.goto();
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await pages.login.login(credentials.username, credentials.password);
+    await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
+
+    console.log('Step 1 Complete: Logged in successfully');
+  });
+
+  test('Step 02: Add Hospice Patient - NoImpact', async () => {
+    test.setTimeout(180000);
+
+    // Setup API interception
+    setupPatientChartListener(sharedPage, (capturedPatientId, response) => {
+      patientId = capturedPatientId;
+      console.log(`\n Patient ID captured: ${patientId}`);
+    });
+
+    const physicianName = TestDataManager.getPhysician();
     const todayFormatted = DateCalculator.getTodaysDate();
 
-    // ============================================
-    // Step 1: Login
-    // ============================================
-    console.log('\n🔐 Step 1: Login');
-    await loginPage.goto();
-    await loginPage.login(
-      process.env.TEST_USERNAME || 'testuser',
-      process.env.TEST_PASSWORD || 'testpassword'
-    );
-
-    // ============================================
-    // Step 2: Add Hospice Patient
-    // ============================================
-    console.log('\n👤 Step 2: Add Hospice Patient - NoImpact');
-
-    await dashboardPage.goto();
-    await dashboardPage.navigateToModule('Patient');
-    await patientPage.clickAddPatient();
+    await pages.dashboard.goto();
+    await pages.dashboard.navigateToModule('Patient');
+    await pages.patient.clickAddPatient();
 
     patientFirstName = faker.person.firstName();
     patientLastName = `NoImpact${faker.person.lastName()}`;
 
-    console.log(`📝 Generated Patient: ${patientFirstName} ${patientLastName}`);
+    console.log(`Generated Patient: ${patientFirstName} ${patientLastName}`);
 
     const patientData: PatientData = {
       careType: 'Hospice',
@@ -112,57 +124,65 @@ test.describe('Admit Hospice Patient - INV No Impact Symptoms', () => {
       },
     };
 
-    await patientPage.selectCareType('Hospice');
-    await patientPage.fillDemographics(patientData);
-    await patientPage.fillAdditionalInfo(patientData);
-    await patientPage.fillContactInfo(patientData);
-    await patientPage.fillAddress(patientData);
-    await patientPage.fillHospiceSpecificFields(false);
-    await patientPage.savePatient();
+    await pages.patient.selectCareType('Hospice');
+    await pages.patient.fillDemographics(patientData);
+    await pages.patient.fillAdditionalInfo(patientData);
+    await pages.patient.fillContactInfo(patientData);
+    await pages.patient.fillAddress(patientData);
+    await pages.patient.fillHospiceSpecificFields(false);
+    await pages.patient.savePatient();
 
-    await page.waitForTimeout(3000);
+    await sharedPage.waitForTimeout(3000);
 
-    // ============================================
-    // Step 3: Search and Select Patient
-    // ============================================
-    console.log('\n🔍 Step 3: Search and Select Patient');
+    console.log('Step 2 Complete: Patient created');
+  });
+
+  test('Step 03: Search and Select Patient', async () => {
+    test.setTimeout(120000);
 
     if (!patientId) {
       throw new Error('Patient ID not captured from API');
     }
 
-    await patientPage.searchPatient(String(patientId));
-    await page.waitForTimeout(5000);
-    await patientPage.getPatientFromGrid(0);
+    await pages.patient.searchPatient(String(patientId));
+    await sharedPage.waitForTimeout(5000);
+    await pages.patient.getPatientFromGrid(0);
 
-    // ============================================
-    // Step 4: Complete Patient Details
-    // ============================================
-    console.log('\n📋 Step 4: Complete Patient Details');
+    console.log(`Step 3 Complete: Patient found - ID ${patientId}`);
+  });
 
-    await patientProfilePage.completePatientDetails(physicianName);
+  test('Step 04: Complete Patient Details', async () => {
+    test.setTimeout(180000);
 
-    // ============================================
-    // Step 5: Complete Care Team
-    // ============================================
-    console.log('\n👥 Step 5: Complete Care Team');
+    const physicianName = TestDataManager.getPhysician();
+    await pages.patientProfile.completePatientDetails(physicianName);
 
-    const careTeamName = process.env.TEST_CARE_TEAM || 'Default Team';
-    await careTeamPage.completeCareTeam(careTeamName);
+    console.log('Step 4 Complete: Patient details added');
+  });
 
-    // ============================================
-    // Step 6: Add Attending Physician
-    // ============================================
-    console.log('\n👨‍⚕️ Step 6: Add Attending Physician');
+  test('Step 05: Complete Care Team', async () => {
+    test.setTimeout(180000);
 
-    await careTeamPage.addAttendingPhysician(physicianName, todayFormatted);
+    const careTeamName = TestDataManager.getCareTeam();
+    await pages.careTeam.completeCareTeam(careTeamName);
 
-    // ============================================
-    // Step 7: Add Caregiver
-    // ============================================
-    console.log('\n👨‍👩‍👧 Step 7: Add Caregiver');
+    console.log('Step 5 Complete: Care team configured');
+  });
 
-    await careTeamPage.addCaregiver({
+  test('Step 06: Add Attending Physician', async () => {
+    test.setTimeout(120000);
+
+    const physicianName = TestDataManager.getPhysician();
+    const todayFormatted = DateCalculator.getTodaysDate();
+    await pages.careTeam.addAttendingPhysician(physicianName, todayFormatted);
+
+    console.log('Step 6 Complete: Attending physician added');
+  });
+
+  test('Step 07: Add Caregiver', async () => {
+    test.setTimeout(120000);
+
+    await pages.careTeam.addCaregiver({
       relation: 'Spouse',
       firstName: 'Jane',
       lastName: 'Doe',
@@ -173,29 +193,37 @@ test.describe('Admit Hospice Patient - INV No Impact Symptoms', () => {
       zipCode: '75212',
     });
 
-    // ============================================
-    // Step 8: Add Order Entry - Level of Care
-    // ============================================
-    console.log('\n📝 Step 8: Add Order Entry - Level of Care');
+    console.log('Step 7 Complete: Caregiver added');
+  });
 
-    await orderManagementPage.addOELOCbytype({
+  test('Step 08: Add Order Entry - Level of Care', async () => {
+    test.setTimeout(180000);
+
+    const physicianName = TestDataManager.getPhysician();
+    const todayFormatted = DateCalculator.getTodaysDate();
+
+    await pages.orderManagement.addOELOCbytype({
       role: 'Registered Nurse (RN)',
       physician: physicianName,
       locType: 'Routine Home Care',
       startDate: todayFormatted,
     });
 
-    // ============================================
-    // Step 9: Add Diagnosis
-    // ============================================
-    console.log('\n🩺 Step 9: Add Diagnosis');
+    console.log('Step 8 Complete: Order entry added');
+  });
 
-    await patientProfilePage.addDiagnosis('Malignant', 'C000');
+  test('Step 09: Add Diagnosis', async () => {
+    test.setTimeout(120000);
 
-    // ============================================
-    // Step 10: Complete Benefits
-    // ============================================
-    console.log('\n💳 Step 10: Complete Benefits');
+    await pages.patientProfile.addDiagnosis('Malignant', 'C000');
+
+    console.log('Step 9 Complete: Diagnosis added');
+  });
+
+  test('Step 10: Complete Benefits', async () => {
+    test.setTimeout(180000);
+
+    const todayFormatted = DateCalculator.getTodaysDate();
 
     const benefitData: BenefitData = {
       payerLevel: 'Primary',
@@ -209,13 +237,17 @@ test.describe('Admit Hospice Patient - INV No Impact Symptoms', () => {
       highDaysUsed: 0,
     };
 
-    await benefitsPage.completeBenefitsForm(benefitData);
-    await page.waitForTimeout(5000);
+    await pages.benefits.completeBenefitsForm(benefitData);
+    await sharedPage.waitForTimeout(5000);
 
-    // ============================================
-    // Step 11: Complete Certifications
-    // ============================================
-    console.log('\n📄 Step 11: Complete Written Certification');
+    console.log('Step 10 Complete: Benefits configured');
+  });
+
+  test('Step 11: Complete Written Certification', async () => {
+    test.setTimeout(120000);
+
+    const physicianName = TestDataManager.getPhysician();
+    const todayFormatted = DateCalculator.getTodaysDate();
 
     const certificationData: WrittenCertificationData = {
       hospicePhysician: physicianName,
@@ -226,48 +258,53 @@ test.describe('Admit Hospice Patient - INV No Impact Symptoms', () => {
       narrativeStatement: 'Patient diagnosed with terminal cancer, prognosis 6 months or less',
     };
 
-    await certificationsPage.completeWrittenCertification(certificationData);
+    await pages.certifications.completeWrittenCertification(certificationData);
 
-    // ============================================
-    // Step 12: Complete Consents
-    // ============================================
-    console.log('\n📝 Step 12: Complete Consents');
+    console.log('Step 11 Complete: Certification completed');
+  });
 
-    await consentsPage.completeRIConsents();
-    await page.waitForTimeout(1000);
+  test('Step 12: Complete Consents', async () => {
+    test.setTimeout(120000);
 
-    // ============================================
-    // Step 13: Admit Patient (6 days ago)
-    // ============================================
-    console.log('\n🏥 Step 13: Admit Patient (6 days ago)');
+    await pages.consents.completeRIConsents();
+    await sharedPage.waitForTimeout(1000);
+
+    console.log('Step 12 Complete: Consents signed');
+  });
+
+  test('Step 13: Admit Patient (6 days ago)', async () => {
+    test.setTimeout(120000);
 
     // Admit 6 days in the past
     admitDateFormatted = DateCalculator.getPastDate(6);
-    console.log(`📅 Admit Date: ${admitDateFormatted}`);
+    console.log(`Admit Date: ${admitDateFormatted}`);
 
-    await patientProfilePage.admitPatient(admitDateFormatted);
-    await page.waitForTimeout(3000);
+    await pages.patientProfile.admitPatient(admitDateFormatted);
+    await sharedPage.waitForTimeout(3000);
 
-    // ============================================
-    // Step 14: Validate INV and HUV1 Alerts
-    // ============================================
-    console.log('\n✅ Step 14: Validate INV and HUV1 Alerts');
+    console.log(`Step 13 Complete: Patient admitted on ${admitDateFormatted}`);
+  });
+
+  test('Step 14: Validate INV and HUV1 Alerts', async () => {
+    test.setTimeout(120000);
+
+    const alertValidator = new AlertValidator(sharedPage);
 
     // Calculate expected alert dates
     const invDueDate = DateCalculator.calculateINVDate(admitDateFormatted);
     const huv1DueDate = DateCalculator.calculateHUV1Date(admitDateFormatted);
 
-    console.log(`📅 Expected INV Due Date: ${invDueDate}`);
-    console.log(`📅 Expected HUV1 Due Date: ${huv1DueDate}`);
+    console.log(`Expected INV Due Date: ${invDueDate}`);
+    console.log(`Expected HUV1 Due Date: ${huv1DueDate}`);
 
     // Validate alerts
     await alertValidator.verifyBothAlerts(invDueDate, huv1DueDate);
 
-    console.log('\n🎉 SUCCESS! Patient admitted with No Impact symptoms - Alerts validated!');
-    console.log(`📋 Patient: ${patientFirstName} ${patientLastName}`);
-    console.log(`🆔 Patient ID: ${patientId}`);
-    console.log(`📅 Admit Date: ${admitDateFormatted}`);
-    console.log(`🔔 INV Due: ${invDueDate}`);
-    console.log(`🔔 HUV1 Due: ${huv1DueDate}`);
+    console.log('\n SUCCESS! Patient admitted with No Impact symptoms - Alerts validated!');
+    console.log(`Patient: ${patientFirstName} ${patientLastName}`);
+    console.log(`Patient ID: ${patientId}`);
+    console.log(`Admit Date: ${admitDateFormatted}`);
+    console.log(`INV Due: ${invDueDate}`);
+    console.log(`HUV1 Due: ${huv1DueDate}`);
   });
 });

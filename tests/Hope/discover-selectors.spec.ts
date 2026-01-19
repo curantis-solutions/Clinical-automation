@@ -1,14 +1,11 @@
 import { test } from '@playwright/test';
-import * as dotenv from 'dotenv';
 import { LoginPage } from '../../pages/login.page';
 import { DashboardPage } from '../../pages/dashboard.page';
 import { PatientPage } from '../../pages/patient.page';
 import { loadTestData } from '../../utils/api-helper';
-import { getEnvConfig, logEnvironmentInfo } from '../../utils/env-helper';
+import { CredentialManager } from '../../utils/credential-manager';
 import * as fs from 'fs';
 import * as path from 'path';
-
-dotenv.config({ path: '.env.local' });
 
 /**
  * Automated Selector Discovery Test
@@ -21,9 +18,6 @@ test.describe('Discover HOPE Selectors Automatically', () => {
   test('Analyze and discover selectors for all sections', async ({ page }) => {
     test.setTimeout(900000); // 15 minutes
 
-    const envConfig = getEnvConfig();
-    logEnvironmentInfo();
-
     const testData = loadTestData();
     const patientId = testData.patientId;
 
@@ -31,6 +25,9 @@ test.describe('Discover HOPE Selectors Automatically', () => {
       throw new Error('Patient ID not found');
     }
 
+    console.log('\n🌍 Environment Configuration:');
+    console.log(`   Environment: ${CredentialManager.getEnvironmentName()}`);
+    console.log(`   Base URL: ${CredentialManager.getBaseUrl()}`);
     console.log(`📂 Using Patient ID: ${patientId}`);
 
     // Initialize page objects
@@ -43,7 +40,8 @@ test.describe('Discover HOPE Selectors Automatically', () => {
     // ============================================
     console.log('\n🔐 Step 1: Login');
     await loginPage.goto();
-    await loginPage.login(envConfig.userRN, envConfig.userRNPwd);
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await loginPage.login(credentials.username, credentials.password);
 
     // ============================================
     // Step 2: Navigate to Patient

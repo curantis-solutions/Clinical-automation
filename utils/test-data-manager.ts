@@ -11,7 +11,7 @@ export class TestDataManager {
 
   /**
    * Set the current tenant for tests
-   * @param tenant - Tenant name (e.g., 'curantis', 'integrum')
+   * @param tenant - Tenant name (e.g., 'cth', 'integrum')
    */
   static setTenant(tenant: string): void {
     const env = this.getEnvironment();
@@ -30,7 +30,7 @@ export class TestDataManager {
 
   /**
    * Get the current tenant name
-   * Priority: 1) Explicitly set tenant, 2) TENANT env var, 3) Default to 'curantis'
+   * Priority: 1) Explicitly set tenant, 2) TENANT env var, 3) Default to 'cth'
    * @returns Current tenant name
    */
   static getTenant(): string {
@@ -44,8 +44,8 @@ export class TestDataManager {
       return envTenant.toLowerCase();
     }
 
-    // Default to curantis
-    return 'curantis';
+    // Default to cth
+    return 'cth';
   }
 
   /**
@@ -61,7 +61,7 @@ export class TestDataManager {
    * @returns Complete tenant test data
    */
   static getData(): TenantTestData {
-    const env = this.getEnvironment();
+    const env = this.getEnvironment().toLowerCase();
     const tenant = this.getTenant();
 
     const data = testData[env]?.[tenant];
@@ -133,20 +133,6 @@ export class TestDataManager {
   }
 
   /**
-   * Get credentials for a specific role
-   * Note: User credentials are now stored in .env.local, not in test-data.ts
-   * Use CredentialManager.getCredentials() instead
-   * @deprecated Use CredentialManager.getCredentials(environment, role, tenant)
-   * @param role - User role (MD, RN, SW, HA)
-   * @returns Credentials object
-   */
-  static getCredentialsForRole(role: string): { username: string; password: string } {
-    const env = this.getEnvironment();
-    const tenant = this.getTenant();
-    return CredentialManager.getCredentials(env, role, tenant);
-  }
-
-  /**
    * Get received by name (for certifications)
    * @returns Received by name or undefined
    */
@@ -171,11 +157,21 @@ export class TestDataManager {
   }
 
   /**
+   * Get RN sign name (for visit signatures)
+   * Uses employeeIdRN or physicianFullName as fallback
+   * @returns RN signature name
+   */
+  static getRNSign(): string {
+    const data = this.getData();
+    return data.rnSign || data.employeeIdRN || data.physicianFullName || 'RN Default';
+  }
+
+  /**
    * Reset tenant to default
    */
   static resetTenant(): void {
     this.currentTenant = null;
-    console.log('✅ Tenant reset to default (curantis)');
+    console.log('✅ Tenant reset to default (cth)');
   }
 
   /**

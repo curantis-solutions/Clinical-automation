@@ -10,7 +10,7 @@ type MyFixtures = {
 // Extend base test with our fixtures
 export const test = base.extend<MyFixtures>({
   // Create a shared browser context for all tests
-  sharedContext: [async ({ }, use) => {
+  sharedContext: async ({ }, use) => {
     // Launch browser once
     const browser = await chromium.launch({
       headless: CredentialManager.isHeadless(),
@@ -30,7 +30,7 @@ export const test = base.extend<MyFixtures>({
     // Cleanup after all tests
     await context.close();
     await browser.close();
-  }, { scope: 'worker' }], // 'worker' scope means reuse across tests in the same worker
+  },
 
   // Create a page from the shared context
   sharedPage: async ({ sharedContext }, use) => {

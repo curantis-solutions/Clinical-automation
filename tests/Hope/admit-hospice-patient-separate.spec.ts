@@ -1,17 +1,13 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, BrowserContext } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import { faker } from '@faker-js/faker';
-import { LoginPage } from '../../pages/login.page';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages/patient.page';
-import { PatientProfilePage } from '../../pages/patient-profile.page';
-import { CareTeamPage } from '../../pages/care-team.page';
-import { BenefitsPage, BenefitData } from '../../pages/benefits.page';
-import { CertificationsPage, WrittenCertificationData } from '../../pages/certifications.page';
-import { ConsentsPage } from '../../pages/consents.page';
-import { OrderManagementPage } from '../../pages/order-management.page';
+import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objects.fixture';
+import { BenefitData } from '../../pages/benefits.page';
+import { WrittenCertificationData } from '../../pages/certifications.page';
 import { PatientData } from '../../types/patient.types';
 import { setupPatientChartListener, saveTestData, loadTestData } from '../../utils/api-helper';
+import { TestDataManager } from '../../utils/test-data-manager';
+import { CredentialManager } from '../../utils/credential-manager';
 
 dotenv.config({ path: '.env.local' });
 
@@ -24,62 +20,63 @@ dotenv.config({ path: '.env.local' });
 
 // Shared state across tests
 let sharedPage: Page;
+let sharedContext: BrowserContext;
 let patientFirstName: string;
 let patientLastName: string;
 let patientId: number | undefined;
 let patientData: PatientData;
 
-// Page objects - will be initialized in first test
-let loginPage: LoginPage;
-let dashboardPage: DashboardPage;
-let patientPage: PatientPage;
-let patientProfilePage: PatientProfilePage;
-let careTeamPage: CareTeamPage;
-let benefitsPage: BenefitsPage;
-let certificationsPage: CertificationsPage;
-let consentsPage: ConsentsPage;
-let orderManagementPage: OrderManagementPage;
+// Page objects - will be initialized in first test using factory
+let pages: PageObjects;
 
 const today = new Date();
-const physicianName = process.env.TEST_PHYSICIAN || 'Cypress';
+const physicianName = TestDataManager.getPhysician();
 const todayFormatted = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
 
 test.describe.serial('Admit Hospice Patient - Step by Step', () => {
 
   test.beforeAll(async ({ browser }) => {
-    // Create a persistent context for all tests
-    const context = await browser.newContext();
-    sharedPage = await context.newPage();
+    // Create a new browser context with standard settings
+    sharedContext = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      ignoreHTTPSErrors: true,
+      baseURL: CredentialManager.getBaseUrl(),
+    });
+
+    // Create single page instance for all tests
+    sharedPage = await sharedContext.newPage();
+
+    // Set longer timeouts for slower environments
+    sharedPage.setDefaultTimeout(30000);
+    sharedPage.setDefaultNavigationTimeout(30000);
+
+    // Initialize page objects using factory (for shared page)
+    pages = createPageObjectsForPage(sharedPage);
+  });
+
+  test.afterAll(async () => {
+    if (sharedContext) {
+      await sharedContext.close();
+    }
   });
 
   test('Step 01: Login to Application', async () => {
     test.setTimeout(120000);
 
-    // Initialize page objects
-    loginPage = new LoginPage(sharedPage);
-    dashboardPage = new DashboardPage(sharedPage);
-    patientPage = new PatientPage(sharedPage);
-    patientProfilePage = new PatientProfilePage(sharedPage);
-    careTeamPage = new CareTeamPage(sharedPage);
-    benefitsPage = new BenefitsPage(sharedPage);
-    certificationsPage = new CertificationsPage(sharedPage);
-    consentsPage = new ConsentsPage(sharedPage);
-    orderManagementPage = new OrderManagementPage(sharedPage);
+    await pages.login.goto();
+    const credentials = CredentialManager.getCredentials(undefined, 'RN');
+    await pages.login.login(credentials.username, credentials.password);
+    await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
 
-    await loginPage.goto();
-    await loginPage.login(
-      process.env.QA_USER_RN || 'testuser',
-      process.env.QA_USER_RN_PWD || 'testpassword'
-    );
-    console.log('✅ Step 1 Complete: Logged in successfully');
+    console.log('Step 1 Complete: Logged in successfully');
   });
 
   test('Step 02: Navigate to Patients', async () => {
     test.setTimeout(120000);
 
-    await dashboardPage.goto();
-    await dashboardPage.navigateToModule('Patient');
-    console.log('✅ Step 2 Complete: Navigated to Patients module');
+    await pages.dashboard.goto();
+    await pages.dashboard.navigateToModule('Patient');
+    console.log('Step 2 Complete: Navigated to Patients module');
   });
 
   test('Step 03: Add New Hospice Patient', async () => {
@@ -90,7 +87,7 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       patientId = capturedPatientId;
     });
 
-    await patientPage.clickAddPatient();
+    await pages.patient.clickAddPatient();
 
     // Generate patient data
     patientFirstName = faker.person.firstName();
@@ -129,13 +126,13 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       },
     };
 
-    await patientPage.selectCareType('Hospice');
-    await patientPage.fillDemographics(patientData);
-    await patientPage.fillAdditionalInfo(patientData);
-    await patientPage.fillContactInfo(patientData);
-    await patientPage.fillAddress(patientData);
-    await patientPage.fillHospiceSpecificFields(false);
-    await patientPage.savePatient();
+    await pages.patient.selectCareType('Hospice');
+    await pages.patient.fillDemographics(patientData);
+    await pages.patient.fillAdditionalInfo(patientData);
+    await pages.patient.fillContactInfo(patientData);
+    await pages.patient.fillAddress(patientData);
+    await pages.patient.fillHospiceSpecificFields(false);
+    await pages.patient.savePatient();
     await sharedPage.waitForTimeout(3000);
 
     // Save test data
@@ -147,7 +144,7 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       testRunTimestamp: new Date().toISOString()
     });
 
-    console.log(`✅ Step 3 Complete: Patient created - ${patientFirstName} ${patientLastName} (ID: ${patientId})`);
+    console.log(`Step 3 Complete: Patient created - ${patientFirstName} ${patientLastName} (ID: ${patientId})`);
   });
 
   test('Step 04: Search and Verify Patient', async () => {
@@ -157,42 +154,42 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       throw new Error('Patient ID not captured from previous step');
     }
 
-    await patientPage.searchPatient(String(patientId));
+    await pages.patient.searchPatient(String(patientId));
     await sharedPage.waitForTimeout(5000);
 
-    const patientChartId = await patientPage.getPatientChartId();
+    const patientChartId = await pages.patient.getPatientChartId();
     expect(patientChartId).toContain(patientId?.toString() || '');
 
-    await patientPage.getPatientFromGrid(0);
-    console.log(`✅ Step 4 Complete: Patient verified - ID ${patientId}`);
+    await pages.patient.getPatientFromGrid(0);
+    console.log(`Step 4 Complete: Patient verified - ID ${patientId}`);
   });
 
   test('Step 05: Complete Patient Details', async () => {
     test.setTimeout(180000);
 
-    await patientProfilePage.completePatientDetails(physicianName);
-    console.log('✅ Step 5 Complete: Patient details added');
+    await pages.patientProfile.completePatientDetails(physicianName);
+    console.log('Step 5 Complete: Patient details added');
   });
 
   test('Step 06: Complete Care Team', async () => {
     test.setTimeout(180000);
 
-    const careTeamName = process.env.TEST_CARE_TEAM || 'ACypressIdg';
-    await careTeamPage.completeCareTeam(careTeamName);
-    console.log('✅ Step 6 Complete: Care team configured');
+    const careTeamName = TestDataManager.getCareTeam();
+    await pages.careTeam.completeCareTeam(careTeamName);
+    console.log('Step 6 Complete: Care team configured');
   });
 
   test('Step 07: Add Attending Physician', async () => {
     test.setTimeout(120000);
 
-    await careTeamPage.addAttendingPhysician(physicianName, todayFormatted);
-    console.log('✅ Step 7 Complete: Attending physician added');
+    await pages.careTeam.addAttendingPhysician(physicianName, todayFormatted);
+    console.log('Step 7 Complete: Attending physician added');
   });
 
   test('Step 08: Add Caregiver', async () => {
     test.setTimeout(120000);
 
-    await careTeamPage.addCaregiver({
+    await pages.careTeam.addCaregiver({
       relation: 'Brother',
       firstName: 'John',
       lastName: 'Doe',
@@ -202,26 +199,26 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       state: 'TX',
       zipCode: '75212',
     });
-    console.log('✅ Step 8 Complete: Caregiver added');
+    console.log('Step 8 Complete: Caregiver added');
   });
 
   test('Step 09: Add Order Entry - Level of Care', async () => {
     test.setTimeout(180000);
 
-    await orderManagementPage.addOELOCbytype({
+    await pages.orderManagement.addOELOCbytype({
       role: 'Registered Nurse (RN)',
       physician: physicianName,
       locType: 'Routine Home Care',
       startDate: todayFormatted,
     });
-    console.log('✅ Step 9 Complete: Order entry added');
+    console.log('Step 9 Complete: Order entry added');
   });
 
   test('Step 10: Add Diagnosis', async () => {
     test.setTimeout(120000);
 
-    await patientProfilePage.addDiagnosis('Malignant', 'C000');
-    console.log('✅ Step 10 Complete: Diagnosis added');
+    await pages.patientProfile.addDiagnosis('Malignant', 'C000');
+    console.log('Step 10 Complete: Diagnosis added');
   });
 
   test('Step 11: Complete Benefits', async () => {
@@ -239,9 +236,9 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       highDaysUsed: 0,
     };
 
-    await benefitsPage.completeBenefitsForm(benefitData);
+    await pages.benefits.completeBenefitsForm(benefitData);
     await sharedPage.waitForTimeout(5000);
-    console.log('✅ Step 11 Complete: Benefits configured');
+    console.log('Step 11 Complete: Benefits configured');
   });
 
   test('Step 12: Complete Written Certification', async () => {
@@ -256,16 +253,16 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
       narrativeStatement: 'Test narrative statement for certification',
     };
 
-    await certificationsPage.completeWrittenCertification(certificationData);
-    console.log('✅ Step 12 Complete: Certification completed');
+    await pages.certifications.completeWrittenCertification(certificationData);
+    console.log('Step 12 Complete: Certification completed');
   });
 
   test('Step 13: Complete Consents', async () => {
     test.setTimeout(120000);
 
-    await consentsPage.completeRIConsents();
+    await pages.consents.completeRIConsents();
     await sharedPage.waitForTimeout(1000);
-    console.log('✅ Step 13 Complete: Consents signed');
+    console.log('Step 13 Complete: Consents signed');
   });
 
   test('Step 14: Admit Patient and Verify', async () => {
@@ -275,14 +272,19 @@ test.describe.serial('Admit Hospice Patient - Step by Step', () => {
     admitDate.setDate(admitDate.getDate() - 30);
     const admitDateFormatted = `${String(admitDate.getMonth() + 1).padStart(2, '0')}/${String(admitDate.getDate()).padStart(2, '0')}/${admitDate.getFullYear()}`;
 
-    await patientProfilePage.admitPatient(admitDateFormatted);
+    await pages.patientProfile.admitPatient(admitDateFormatted);
     await sharedPage.waitForTimeout(1000);
+
+    // Save admit date to test data for billing validation
+    saveTestData({
+      admitDate: admitDateFormatted
+    });
 
     // Verify admission
     const statusTabExists = await sharedPage.locator('a[href="#/referral-tabs/patient/patient-details/status"]').isVisible();
     expect(statusTabExists).toBeTruthy();
 
-    console.log(`✅ Step 14 Complete: Patient admitted on ${admitDateFormatted}`);
-    console.log(`\n🎉 SUCCESS! All 14 steps completed for ${patientFirstName} ${patientLastName} (ID: ${patientId})`);
+    console.log(`Step 14 Complete: Patient admitted on ${admitDateFormatted}`);
+    console.log(`\n SUCCESS! All 14 steps completed for ${patientFirstName} ${patientLastName} (ID: ${patientId})`);
   });
 });
