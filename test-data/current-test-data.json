@@ -1,0 +1,11 @@
+{
+  "patientFirstName": "Verna",
+  "patientLastName": "Schneider",
+  "patientSSN": "029588496",
+  "patientId": 213968,
+  "admitDate": "09/14/2025",
+  "testRunTimestamp": "2026-01-19T21:21:59.870Z",
+  "patientIds": {
+    "noImpact": 213600
+  }
+}
