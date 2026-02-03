@@ -25,6 +25,9 @@ import { CertificationsPage } from '../pages/certifications.page';
 import { ConsentsPage } from '../pages/consents.page';
 import { OrderManagementPage } from '../pages/order-management.page';
 import { HopePreviewPage } from '../pages/hope-preview.page';
+import { PatientPagenew } from 'pages_new/patient.pagenew';
+import { PatientDetailsPage } from 'pages_new/patient-details.page';
+import * as PatientWorkflow from '../workflows/addpatient-workflow';
 
 /**
  * Collection of all page objects
@@ -40,6 +43,17 @@ export interface PageObjects {
   consents: ConsentsPage;
   orderManagement: OrderManagementPage;
   hopePreview: HopePreviewPage;
+  patientPageNew: PatientPagenew;
+  patientDetails: PatientDetailsPage;
+   workflow: {
+    addPatientWorkflow: typeof PatientWorkflow.addPatientWorkflow;
+    addPatientFromFixture: typeof PatientWorkflow.addPatientFromFixture;
+    addCallerInformation: typeof PatientWorkflow.addCallerInformation;
+    addReferrerInformation: typeof PatientWorkflow.addReferrerInformation;
+    addReferringPhysicianInformation: typeof PatientWorkflow.addReferringPhysicianInformation;
+    addOrderingPhysicianInformation: typeof PatientWorkflow.addOrderingPhysicianInformation;
+  };
+  
 }
 
 // Define fixture types
@@ -68,6 +82,16 @@ function createPageObjectsForPage(page: Page): PageObjects {
     consents: new ConsentsPage(page),
     orderManagement: new OrderManagementPage(page),
     hopePreview: new HopePreviewPage(page),
+    patientPageNew: new PatientPagenew(page),
+    patientDetails: new PatientDetailsPage(page),
+    workflow: {
+      addPatientWorkflow: PatientWorkflow.addPatientWorkflow,
+      addPatientFromFixture: PatientWorkflow.addPatientFromFixture,
+      addCallerInformation: PatientWorkflow.addCallerInformation,
+      addReferrerInformation: PatientWorkflow.addReferrerInformation,
+      addReferringPhysicianInformation: PatientWorkflow.addReferringPhysicianInformation,
+      addOrderingPhysicianInformation: PatientWorkflow.addOrderingPhysicianInformation,
+    },
   };
 }
 

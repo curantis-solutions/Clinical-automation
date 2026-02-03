@@ -23,11 +23,11 @@
 
 import { Page } from '@playwright/test';
 import { faker } from '@faker-js/faker';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages_new/patient.page';
-import { CareType, Gender } from '../../types/patient.types';
-import { setupPatientChartListener } from '../../utils/api-helper';
-import { PatientDataFixture, updateFixtureRuntimeData } from '../../fixtures/patient-data.fixture';
+import { DashboardPage } from '../pages/dashboard.page';
+import { PatientPagenew } from '../pages_new/patient.pagenew';
+import { CareType, Gender } from '../types/patient.types';
+import { setupPatientChartListener } from '../utils/api-helper';
+import { PatientDataFixture, updateFixtureRuntimeData } from '../fixtures/patient-data.fixture';
 import { PatientDetailsPage } from 'pages_new/patient-details.page';
 
 
@@ -118,7 +118,7 @@ export async function addPatientWorkflow(
 ): Promise<PatientWorkflowResult> {
   // Initialize page objects
   const dashboardPage = new DashboardPage(page);
-  const patientPage = new PatientPage(page);
+  const patientPage = new PatientPagenew(page);
 
   // Storage for patient data
   let patientId: number | undefined;

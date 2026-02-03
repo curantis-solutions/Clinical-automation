@@ -24,7 +24,7 @@ import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 import { LoginPage } from '../../pages/login.page';
 import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages_new/patient.page';
+import { PatientPage } from '../../pages_new/patient.pagenew';
 import { PatientDetailsPage } from '../../pages_new/patient-details.page';
 import { CredentialManager } from '../../utils/credential-manager';
 import { PatientData } from '../../types/patient.types';

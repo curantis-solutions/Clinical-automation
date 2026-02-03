@@ -7,7 +7,7 @@ import { selectDateFormatted } from '@utils/date-helper';
  * Patient Page Object
  * Handles all patient-specific actions (add, search, edit)
  */
-export class PatientPage extends BasePage {
+export class PatientPagenew extends BasePage {
   // Selectors from Cypress (data-cy attributes)
   private readonly selectors = {
     // Patient List
