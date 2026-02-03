@@ -56,3 +56,73 @@ export interface PatientSearchCriteria {
   ssn?: string;
   dateOfBirth?: string;
 }
+
+/**
+ * Comprehensive Add Patient Form Data
+ * Maps to all fields in add-patient-details-popover.html
+ */
+export interface AddPatientFormData {
+  // Type of Care (required)
+  careType: CareType;
+
+  // Demographics
+  firstName: string;
+  middleInitial?: string;
+  lastName: string;
+  prefix?: string;           // Select option ID
+  suffix?: string;           // Select option ID
+  nickname?: string;
+  ssn?: string;
+  ssnUnknown?: boolean;
+  codeStatus?: string;       // Select option ID
+  dateOfBirth: string;       // Format: MM/DD/YYYY
+  gender: 'Male' | 'Female'; // Maps to value '1' or '2'
+  veteran: boolean;
+
+  // Additional Info
+  maritalStatus?: string;    // Select option ID
+  firstLanguage?: string;    // Select option ID
+  religion?: string;         // Select option ID
+  religionOtherText?: string; // When religion is 'Other'
+  ethnicityHis?: string[];   // ng-select multi-select IDs
+  ethnicityHope?: string[];  // ng-select multi-select IDs
+  raceHope?: string[];       // ng-select multi-select IDs
+
+  // Contact Info
+  phoneNumber?: string;
+  emailAddress?: string;
+  riskPriority?: string;     // Select option ID
+  emergencyPreparedness?: string;
+
+  // Home Address
+  streetAddress?: string;
+  city?: string;
+  state?: string;            // State abbreviation e.g., 'TX'
+  zipCode?: string;
+  zipCodeExt?: string;
+  county?: string;
+
+  // Referral Location
+  sameAsHomeAddress?: boolean;
+  locationType?: string;     // Select option ID
+  locationTypeValue?: string; // Search input value
+
+  // Referral Address (when creating new)
+  referralName?: string;
+  referralStreetAddress?: string;
+  referralCity?: string;
+  referralState?: string;
+  referralZip?: string;
+  referralZipCodeExt?: string;
+  referralCounty?: string;
+  referralPhone?: string;
+  referralEmailAddress?: string;
+
+  // Living Will
+  livingWill?: boolean;
+
+  // Hospice Specific
+  skilledBed?: boolean;
+  daysRemaining?: string;    // Select option value (when skilledBed is true)
+  roomNumber?: string;       // Input value (when skilledBed is true)
+}

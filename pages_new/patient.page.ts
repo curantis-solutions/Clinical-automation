@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test';
-import { BasePage } from './base.page';
+import { BasePage } from '@pages/base.page';
 import { PatientData, CareType } from '../types/patient.types';
 import { selectDateFormatted } from '@utils/date-helper';
 
@@ -28,7 +28,7 @@ export class PatientPage extends BasePage {
     lastName: 'input[data-cy="input-last-name"]',
     prefix: '[data-cy="select-prefix"]',
     suffix: '[data-cy="select-suffix"]',
-    nickname: '[data-cy="input-nickname"]',
+    nickname: 'input[data-cy="input-nickname"]',
     ssn: 'input[data-cy="input-ssn"]',
     ssnUnknown: '[data-cy="checkbox-unknow"]',
     codeStatus: '[data-cy="select-code-status"]',
