@@ -28,6 +28,7 @@ import { HopePreviewPage } from '../pages/hope-preview.page';
 import { PatientPagenew } from 'pages_new/patient.pagenew';
 import { PatientDetailsPage } from 'pages_new/patient-details.page';
 import * as PatientWorkflow from '../workflows/addpatient-workflow';
+import { BenefitsWorkflow } from '../workflows/benefits.workflow';
 
 /**
  * Collection of all page objects
@@ -45,7 +46,7 @@ export interface PageObjects {
   hopePreview: HopePreviewPage;
   patientPageNew: PatientPagenew;
   patientDetails: PatientDetailsPage;
-   workflow: {
+  workflow: {
     addPatientWorkflow: typeof PatientWorkflow.addPatientWorkflow;
     addPatientFromFixture: typeof PatientWorkflow.addPatientFromFixture;
     addCallerInformation: typeof PatientWorkflow.addCallerInformation;
@@ -53,7 +54,7 @@ export interface PageObjects {
     addReferringPhysicianInformation: typeof PatientWorkflow.addReferringPhysicianInformation;
     addOrderingPhysicianInformation: typeof PatientWorkflow.addOrderingPhysicianInformation;
   };
-  
+  benefitsWorkflow: BenefitsWorkflow;
 }
 
 // Define fixture types
@@ -92,6 +93,7 @@ function createPageObjectsForPage(page: Page): PageObjects {
       addReferringPhysicianInformation: PatientWorkflow.addReferringPhysicianInformation,
       addOrderingPhysicianInformation: PatientWorkflow.addOrderingPhysicianInformation,
     },
+    benefitsWorkflow: new BenefitsWorkflow(page),
   };
 }
 

@@ -244,5 +244,13 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     console.log(`   Same as Referring Physician: ${orderingPhysicianInfo?.sameAsReferringPhysician}`);
   });
 
+   test("Step 2: Navigate to Benefits and add benefit", async () => {
+      // Use the workflow to add benefit
+      // Data is read from BENEFIT_FORM_DATA in fixtures/benefit-fixtures.ts
+      await pages.benefitsWorkflow.fillBenefitDetails("add");
+  
+      console.log("Benefit added successfully");
+    });
+
 
 });

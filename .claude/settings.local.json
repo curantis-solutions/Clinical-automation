@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Sri/Claude-QA-Automation/clinical-cypress-testing/cypress/support/pageObjects/**)"
+      "Read(//c/Users/Sri/Claude-QA-Automation/clinical-cypress-testing/cypress/support/pageObjects/**)",
+      "mcp__playwright-mcp__browser_type",
+      "mcp__playwright-mcp__browser_click"
     ],
     "deny": [],
     "ask": []
