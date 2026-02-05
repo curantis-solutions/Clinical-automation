@@ -252,5 +252,16 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
       console.log("Benefit added successfully");
     });
 
+     // ===========================================================================
+      // STEP 3: Add or Edit Consents 
+      // ===========================================================================
+      test('Step 3: Navigate to Consents and Add/Edit Form', async () => {
+        // Use the consents workflow - it auto-detects add vs edit mode
+        await pages.consentsWorkflow.fillConsents('yes');
+    
+        console.log('Consents workflow completed successfully');
+      });
+    
+
 
 });
