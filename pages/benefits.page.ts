@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
-import { selectDateFormatted, getTodaysDate } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 import { executeWithScreenshot } from '../utils/error-handler';
 
 /**
@@ -225,7 +225,7 @@ export class BenefitsPage extends BasePage {
     await executeWithScreenshot(this.page, 'Set Payer Effective Date', async () => {
       await this.page.locator(this.selectors.payerEffectiveDate).click();
       await this.page.waitForTimeout(500);
-      await selectDateFormatted(this.page, benefitData.payerEffectiveDate);
+      await DateHelper.selectDateFormatted(this.page, benefitData.payerEffectiveDate);
     });
 
     await executeWithScreenshot(this.page, 'Select Plan Name/Address', async () => {
@@ -252,10 +252,10 @@ export class BenefitsPage extends BasePage {
     });
 
     await executeWithScreenshot(this.page, 'Set Benefit Election Date', async () => {
-      const electionDate = benefitData.benefitElectionDate || getTodaysDate();
+      const electionDate = benefitData.benefitElectionDate || DateHelper.getTodaysDate();
       await this.page.locator(this.selectors.benefitElectionDate).click();
       await this.page.waitForTimeout(500);
-      await selectDateFormatted(this.page, benefitData.benefitPeriodStartDate);
+      await DateHelper.selectDateFormatted(this.page, benefitData.benefitPeriodStartDate);
       // await this.page.locator(this.selectors.benefitElectionDate)
       //   .locator('input')
       //   .fill(electionDate, { force: true });
@@ -269,7 +269,7 @@ export class BenefitsPage extends BasePage {
     await executeWithScreenshot(this.page, 'Set Benefit Period Start Date', async () => {
       await this.page.locator(this.selectors.benefitPeriodStartDate).click();
       await this.page.waitForTimeout(500);
-      await selectDateFormatted(this.page, benefitData.benefitPeriodStartDate);
+      await DateHelper.selectDateFormatted(this.page, benefitData.benefitPeriodStartDate);
     });
 
     await executeWithScreenshot(this.page, 'Fill High Days Used', async () => {

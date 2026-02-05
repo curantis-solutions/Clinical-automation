@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
-import { selectDateFormatted } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Care Team Page Object
@@ -211,7 +211,7 @@ export class CareTeamPage extends BasePage {
     await this.page.locator(this.selectors.dateValue).click();
     await this.page.waitForTimeout(1000);
     console.log(`Setting start date: ${startDate}`);
-    await selectDateFormatted(this.page, startDate);
+    await DateHelper.selectDateFormatted(this.page, startDate);
 
     // Save
     await this.page.locator(this.selectors.attPhysicianDone).click({ force: true });

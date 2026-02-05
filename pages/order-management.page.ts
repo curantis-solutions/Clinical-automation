@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
-import { selectDateFormatted } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Order Management Page Object
@@ -138,7 +138,7 @@ export class OrderManagementPage extends BasePage {
   async setStartDate(dateString: string): Promise<void> {
     await this.page.locator(this.selectors.startDt).click();
     await this.page.waitForTimeout(2000);
-    await selectDateFormatted(this.page, dateString);
+    await DateHelper.selectDateFormatted(this.page, dateString);
     console.log(`✅ Set start date: ${dateString}`);
   }
 
