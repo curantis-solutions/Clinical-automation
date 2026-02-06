@@ -89,8 +89,7 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
   // EXAMPLE 1a: Add Hospice Patient
   // ===========================================================================
   test('Example 1: Add Hospice patient using fixture file data ', async () => {
-    const result = await pages.workflow.addPatientFromFixture(
-      sharedPage,
+    const result = await pages.patientWorkflow.addPatientFromFixture(
       hospiceFixture,
       {
         skipLogin: true, // Already logged in from beforeAll
@@ -177,7 +176,7 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     const callerInfo = hospiceFixture.referralInfo?.caller;
 
     // Add caller information using fixture data
-    const callerResult = await pages.workflow.addCallerInformation(sharedPage, {
+    const callerResult = await pages.patientWorkflow.addCallerInformation({
       referralType: callerInfo?.referralType || 'Call',
       relation: callerInfo?.relation || 'Physician',
       // searchName: callerInfo?.searchName || 'cypresslast',
@@ -197,7 +196,7 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     const referrerInfo = hospiceFixture.referralInfo?.referrer;
 
     // Add referrer information using fixture data
-    const referrerResult = await pages.workflow.addReferrerInformation(sharedPage, {
+    const referrerResult = await pages.patientWorkflow.addReferrerInformation({
       relation: referrerInfo?.relation,
       searchName: referrerInfo?.searchName,
       sameAsCaller: referrerInfo?.sameAsCaller ?? true,
@@ -216,10 +215,13 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     const referringPhysicianInfo = hospiceFixture.referralInfo?.referringPhysician;
 
     // Add referring physician using fixture data
-    const referringPhysicianResult = await pages.workflow.addReferringPhysicianInformation(sharedPage, {
-      searchName: referringPhysicianInfo?.searchName,
-      sameAsReferrer: referringPhysicianInfo?.sameAsReferrer,
-    });
+    const referringPhysicianResult = await pages.patientWorkflow.addReferringPhysicianInformation(
+      'add',
+      {
+        searchName: referringPhysicianInfo?.searchName,
+        sameAsReferrer: referringPhysicianInfo?.sameAsReferrer,
+      }
+    );
 
     expect(referringPhysicianResult.success).toBeTruthy();
     console.log('✅ Referring physician information added successfully');
@@ -234,7 +236,7 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     const orderingPhysicianInfo = hospiceFixture.referralInfo?.orderingPhysician;
 
     // Add ordering physician using fixture data
-    const orderingPhysicianResult = await pages.workflow.addOrderingPhysicianInformation(sharedPage, {
+    const orderingPhysicianResult = await pages.patientWorkflow.addOrderingPhysicianInformation('add', {
       searchName: orderingPhysicianInfo?.searchName,
       sameAsReferringPhysician: orderingPhysicianInfo?.sameAsReferringPhysician,
     });
