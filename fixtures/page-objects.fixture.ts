@@ -27,7 +27,7 @@ import { OrderManagementPage } from '../pages/order-management.page';
 import { HopePreviewPage } from '../pages/hope-preview.page';
 import { PatientPagenew } from 'pages_new/patient.pagenew';
 import { PatientDetailsPage } from 'pages_new/patient-details.page';
-import * as PatientWorkflow from '../workflows/addpatient-workflow';
+import { PatientWorkflow } from '../workflows/patient-profile';
 import { BenefitsWorkflow } from '../workflows/benefits.workflow';
 import { ConsentsWorkflow } from '../workflows/consents.workflow';
 
@@ -47,14 +47,7 @@ export interface PageObjects {
   hopePreview: HopePreviewPage;
   patientPageNew: PatientPagenew;
   patientDetails: PatientDetailsPage;
-  workflow: {
-    addPatientWorkflow: typeof PatientWorkflow.addPatientWorkflow;
-    addPatientFromFixture: typeof PatientWorkflow.addPatientFromFixture;
-    addCallerInformation: typeof PatientWorkflow.addCallerInformation;
-    addReferrerInformation: typeof PatientWorkflow.addReferrerInformation;
-    addReferringPhysicianInformation: typeof PatientWorkflow.addReferringPhysicianInformation;
-    addOrderingPhysicianInformation: typeof PatientWorkflow.addOrderingPhysicianInformation;
-  };
+  patientWorkflow: PatientWorkflow;
   benefitsWorkflow: BenefitsWorkflow;
   consentsWorkflow: ConsentsWorkflow;
 }
@@ -87,14 +80,7 @@ function createPageObjectsForPage(page: Page): PageObjects {
     hopePreview: new HopePreviewPage(page),
     patientPageNew: new PatientPagenew(page),
     patientDetails: new PatientDetailsPage(page),
-    workflow: {
-      addPatientWorkflow: PatientWorkflow.addPatientWorkflow,
-      addPatientFromFixture: PatientWorkflow.addPatientFromFixture,
-      addCallerInformation: PatientWorkflow.addCallerInformation,
-      addReferrerInformation: PatientWorkflow.addReferrerInformation,
-      addReferringPhysicianInformation: PatientWorkflow.addReferringPhysicianInformation,
-      addOrderingPhysicianInformation: PatientWorkflow.addOrderingPhysicianInformation,
-    },
+    patientWorkflow: new PatientWorkflow(page),
     benefitsWorkflow: new BenefitsWorkflow(page),
     consentsWorkflow: new ConsentsWorkflow(page),
   };

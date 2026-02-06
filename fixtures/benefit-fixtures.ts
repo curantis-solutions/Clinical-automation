@@ -29,7 +29,8 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
       cth: { Medicare: '', Medicaid: '', Commercial: '' }, 
     },
     prod: {
-      cth: { Medicare: 'Medicare A', Medicaid: 'Automation Medicaid', Commercial: 'All Commercial' },   
+      cth: { Medicare: 'Medicare A', Medicaid: 'Automation Medicaid', Commercial: 'All Commercial' },  
+      cch: { Medicare: 'Medicare A', Medicaid: 'Medicaid', Commercial: 'Cypress Payer' },  
     },
   },
   Palliative: {
@@ -42,6 +43,7 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
     },
     prod: {
       cth: { Medicare: 'Medicare A', Medicaid: 'Medicaid Prod', Commercial: 'Aetna' },
+       cch: { Medicare: 'Medicare B', Medicaid: 'Palliative Medicaid', Commercial: 'Commercial Palliative' },
     },
   },
   'Room And Board': {
@@ -54,6 +56,7 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
     },
     prod: {
       cth: { Medicaid: 'A rb payer', Commercial: 'All Commercial' },
+      cch: { Medicaid: 'Medicaid R&B', Commercial: 'New Commercial payer' },
     },
   },
 };
