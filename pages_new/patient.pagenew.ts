@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 import { BasePage } from '@pages/base.page';
 import { PatientData, CareType } from '../types/patient.types';
-import { selectDateFormatted } from '@utils/date-helper';
+import { DateHelper } from '@utils/date-helper';
 
 /**
  * Patient Page Object
@@ -165,7 +165,7 @@ export class PatientPagenew extends BasePage {
      await this.page.locator(this.selectors.dateOfBirth).click();
         await this.page.waitForTimeout(1000);
         console.log(`Setting start date: ${demographics.dateOfBirth}`);
-        await selectDateFormatted(this.page, demographics.dateOfBirth);
+        await DateHelper.selectDateFormatted(this.page, demographics.dateOfBirth);
 
     // Gender
     if (demographics.gender === 'Male') {
