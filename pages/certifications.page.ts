@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
-import { selectDateFormatted } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Certifications Page Object
@@ -133,7 +133,7 @@ export class CertificationsPage extends BasePage {
     // Set signed on date for hospice physician
     await this.page.locator(this.selectors.signedOnPicker).click();
     await this.page.waitForTimeout(1000);
-    await selectDateFormatted(this.page, certData.signedOnDate);
+    await DateHelper.selectDateFormatted(this.page, certData.signedOnDate);
     console.log(`✅ Set Signed On Date: ${certData.signedOnDate}`);
 
     // Fill Attending Physician
@@ -146,7 +146,7 @@ export class CertificationsPage extends BasePage {
     // Set signed on date for attending physician
     await this.page.locator(this.selectors.signedOnPicker2).click();
     await this.page.waitForTimeout(1000);
-    await selectDateFormatted(this.page, certData.attendingSignedOnDate);
+    await DateHelper.selectDateFormatted(this.page, certData.attendingSignedOnDate);
     console.log(`✅ Set Attending Signed On Date: ${certData.attendingSignedOnDate}`);
 
     // Fill narrative based on role

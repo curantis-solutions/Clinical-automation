@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 import { BenefitFormData } from '../types/benefit.types';
 import { BenefitsAddPage } from '../pages_new/benefits-add.page';
 import { BENEFIT_FORM_DATA, PAYER_NAMES, PayerType, BenefitType, createBenefitData } from '../fixtures/benefit-fixtures';
-import { getTodaysDate } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Benefits Workflow
@@ -117,10 +117,10 @@ export class BenefitsWorkflow {
 
     // === Dates Section ===
     if (shouldEdit('payerEffectiveDate')) {
-      await this.fillDateField('payerEffectiveDate', data.payerEffectiveDate || getTodaysDate());
+      await this.fillDateField('payerEffectiveDate', data.payerEffectiveDate || DateHelper.getTodaysDate());
     }
     if (shouldEdit('benefitElectionDate')) {
-      await this.fillDateField('benefitElectionDate', data.benefitElectionDate || getTodaysDate());
+      await this.fillDateField('benefitElectionDate', data.benefitElectionDate || DateHelper.getTodaysDate());
     }
     if (shouldEdit('benefitPeriodStartDate')) {
       await this.benefitsPage.fillBenefitPeriodStartDate(data.benefitPeriodStartDate!);
@@ -129,7 +129,7 @@ export class BenefitsWorkflow {
     // === Room And Board Specific Fields ===
     if (data.payerLevel === 'Room And Board') {
       if (shouldEdit('billingEffectiveDate')) {
-        await this.benefitsPage.fillBillingEffectiveDate(data.billingEffectiveDate || getTodaysDate());
+        await this.benefitsPage.fillBillingEffectiveDate(data.billingEffectiveDate || DateHelper.getTodaysDate());
       }
       if (shouldEdit('billRate')) {
         await this.benefitsPage.selectBillRate(data.billRate!);
