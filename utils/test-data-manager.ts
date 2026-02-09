@@ -1,5 +1,7 @@
+import { Page } from '@playwright/test';
 import { testData, TenantTestData, tenantExists, getAvailableTenants } from '../config/test-data';
 import { CredentialManager } from './credential-manager';
+import { ApiClient } from './api-client';
 
 /**
  * Test Data Manager
@@ -164,6 +166,44 @@ export class TestDataManager {
   static getRNSign(): string {
     const data = this.getData();
     return data.rnSign || data.employeeIdRN || data.physicianFullName || 'RN Default';
+  }
+
+  /**
+   * Intercept the /users/ API response to resolve the physician search term.
+   * Must be called BEFORE login — the app fires GET /users/ during dashboard load.
+   *
+   * - If the logged-in user is a physician: returns their username (e.g. "medical directorcch")
+   * - If not a physician (RN, SW, etc.): falls back to hardcoded config
+   * - If interception fails: falls back to hardcoded config
+   *
+   * @example
+   *   const physicianPromise = TestDataManager.interceptPhysicianName(page);
+   *   await login(...);
+   *   const name = await physicianPromise;
+   *   certificationWorkflow.setPhysicianName(name);
+   *
+   * @param page - Playwright Page (call BEFORE login)
+   * @returns Promise resolving to the physician search term
+   */
+  static interceptPhysicianName(page: Page): Promise<string> {
+    return ApiClient.interceptUserInfo(page)
+      .then((userInfo) => {
+        if (userInfo.isPhysician) {
+          // Logged-in user is a physician — use their username as the search term
+          console.log(`Dynamic physician name resolved: "${userInfo.username}" (logged-in physician)`);
+          return userInfo.username;
+        }
+        // Non-physician user (RN, SW, etc.) — fall back to hardcoded config
+        const fallback = this.getPhysician();
+        console.log(`Logged-in user is not a physician — using config: "${fallback}"`);
+        return fallback;
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Failed to intercept physician name: ${message}`);
+        console.warn('Falling back to hardcoded physician from test data config');
+        return this.getPhysician();
+      });
   }
 
   /**

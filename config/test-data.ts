@@ -92,6 +92,14 @@ export const testData: Record<string, EnvironmentTestData> = {
       facility: 'Home',
       receivedBy: 'MDcypress cypresslast',
     },
+     cch: {
+      physician: 'directorcch',
+      physicianFullName: 'medical directorcch',
+      physicianWithCredentials: 'directorcch, medical (MD)',
+      careTeam: 'A Team',
+      facility: 'Home',
+      receivedBy: 'medical directorcch',
+    },
   },
 
   // Development Environment
