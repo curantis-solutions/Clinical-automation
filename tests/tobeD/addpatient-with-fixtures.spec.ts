@@ -13,6 +13,7 @@ import { test, expect, createPageObjectsForPage, type PageObjects } from '@fixtu
 import { Page, BrowserContext } from '@playwright/test';
 import * as PatientFixtures from '../../fixtures/patient-data.fixture';
 import { CredentialManager } from '../../utils/credential-manager';
+import { TestDataManager } from '../../utils/test-data-manager';
 
 let sharedPage: Page;
 let sharedContext: BrowserContext;
@@ -40,10 +41,18 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     // Login once for all tests
     console.log('🔐 Logging in to QA environment...');
     await pages.login.goto();
+
+    // Set up API interception BEFORE login to capture physician name
+    const physicianNamePromise = TestDataManager.interceptPhysicianName(sharedPage);
+
     const credentials = CredentialManager.getCredentials(undefined, 'RN');
     await pages.login.login(credentials.username, credentials.password);
     await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
     console.log('✅ Login successful - ready for tests');
+
+    // Resolve the intercepted physician name (falls back to hardcoded config)
+    const physicianName = await physicianNamePromise;
+    pages.certificationWorkflow.setPhysicianName(physicianName);
   });
 
   test.afterAll(async () => {
@@ -260,10 +269,46 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
       test('Step 3: Navigate to Consents and Add/Edit Form', async () => {
         // Use the consents workflow - it auto-detects add vs edit mode
         await pages.consentsWorkflow.fillConsents('yes');
-    
+
         console.log('Consents workflow completed successfully');
       });
-    
 
+  // ===========================================================================
+  // STEP 4: Add Verbal Certification
+  // ===========================================================================
+  test('Step 4: Add Verbal Certification', async () => {
+    await pages.certificationWorkflow.fillCertificationDetails('add', 'Verbal');
+
+    // Verify: form should be closed (save button gone)
+    const saveVisible = await pages.certification.isSaveButtonVisible();
+    expect(saveVisible).toBeFalsy();
+
+    // Verify: a Verbal certification record exists in the grid
+    const verbalExists = await pages.certification.isVerbalCertificationVisible(0);
+    expect(verbalExists).toBeTruthy();
+
+    console.log('Verbal certification added and verified in grid');
+  });
+
+  // ===========================================================================
+  // STEP 5: Add Written Certification
+  // ===========================================================================
+  test('Step 5: Add Written Certification', async () => {
+    await pages.certificationWorkflow.fillCertificationDetails('add', 'Written', [], {
+      certType: 'Written',
+      certifyingSignedOn: '01/01/2026',
+      attendingSignedOn: '01/01/2026',
+    });
+
+    // Verify: form should be closed (save button gone)
+    const saveVisible = await pages.certification.isSaveButtonVisible();
+    expect(saveVisible).toBeFalsy();
+
+    // Verify: a Written certification record exists in the grid
+    const writtenExists = await pages.certification.isWrittenCertificationVisible(0);
+    expect(writtenExists).toBeTruthy();
+
+    console.log('Written certification added and verified in grid');
+  });
 
 });

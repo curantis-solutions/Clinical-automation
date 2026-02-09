@@ -30,6 +30,8 @@ import { PatientDetailsPage } from 'pages_new/patient-details.page';
 import { PatientWorkflow } from '../workflows/patient-profile';
 import { BenefitsWorkflow } from '../workflows/benefits.workflow';
 import { ConsentsWorkflow } from '../workflows/consents.workflow';
+import { CertificationPage } from '../pages_new/certification.page';
+import { CertificationWorkflow } from '../workflows/certification.workflow';
 
 /**
  * Collection of all page objects
@@ -50,6 +52,8 @@ export interface PageObjects {
   patientWorkflow: PatientWorkflow;
   benefitsWorkflow: BenefitsWorkflow;
   consentsWorkflow: ConsentsWorkflow;
+  certification: CertificationPage;
+  certificationWorkflow: CertificationWorkflow;
 }
 
 // Define fixture types
@@ -83,6 +87,8 @@ function createPageObjectsForPage(page: Page): PageObjects {
     patientWorkflow: new PatientWorkflow(page),
     benefitsWorkflow: new BenefitsWorkflow(page),
     consentsWorkflow: new ConsentsWorkflow(page),
+    certification: new CertificationPage(page),
+    certificationWorkflow: new CertificationWorkflow(page),
   };
 }
 
