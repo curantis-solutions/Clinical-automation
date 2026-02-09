@@ -168,6 +168,8 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     console.log(`   Current URL: ${currentUrl}`);
   });
 
+ 
+
   // ===========================================================================
   // EXAMPLE 2: Add Caller Information to Patient
   // ===========================================================================
@@ -245,19 +247,74 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     console.log('✅ Ordering physician information added successfully');
     console.log(`   Same as Referring Physician: ${orderingPhysicianInfo?.sameAsReferringPhysician}`);
   });
+   // ===========================================================================
+  // STEP 3: Navigate to Care Team and Add Care Team / attending physician / caregiver
+  // ===========================================================================
+  test('Step 3: Navigate to Care Team and Add Team', async () => {
+    console.log('🏥 Navigating to Care Team section...');
 
-   test("Step 2: Navigate to Benefits and add benefit", async () => {
+    // Navigate to Care Team tab
+    await pages.careTeamWorkflow.navigateToCareTeam();
+
+    // Select care team (uses fixture data or environment default)
+    await pages.careTeamWorkflow.selectCareTeam();
+    console.log('✅ Care team selected');
+
+    // Add standard roles (Social Worker, Spiritual Advisor, RN, Medical Director)
+    await pages.careTeamWorkflow.addStandardRoles();
+    console.log('✅ Standard care team roles added');
+
+    console.log('✅ Care Team setup completed successfully');
+  });
+
+  // ===========================================================================
+  // STEP 3.a: Add Attending Physician
+  // ===========================================================================
+  test('Step 3.a: Add Attending Physician', async () => {
+    console.log('👨‍⚕️ Adding Attending Physician...');
+
+    // Add attending physician using fixture data
+    await pages.careTeamWorkflow.fillAttendingPhysician('add');
+
+    // Verify physician was added
+    const physicianCount = await pages.careTeamWorkflow.getAttendingPhysicianCount();
+    expect(physicianCount).toBeGreaterThan(0);
+
+    console.log('✅ Attending Physician added successfully');
+    console.log(`   Total physicians: ${physicianCount}`);
+  });
+
+  // ===========================================================================
+  // STEP 3.b: Add Caregiver
+  // ===========================================================================
+  test('Step 3.b: Add Caregiver', async () => {
+    console.log('👪 Adding Caregiver...');
+
+    // Add caregiver using fixture data
+    await pages.careTeamWorkflow.fillCaregiverDetails('add');
+
+    console.log('✅ Caregiver added successfully');
+  
+  });
+// ===========================================================================
+// STEP 4: Navigate to Benefits and Add Benefit
+// ===========================================================================  
+
+   test("Step 4: Navigate to Benefits and add benefit", async () => {
       // Use the workflow to add benefit
       // Data is read from BENEFIT_FORM_DATA in fixtures/benefit-fixtures.ts
       await pages.benefitsWorkflow.fillBenefitDetails("add");
   
       console.log("Benefit added successfully");
     });
+// ===========================================================================
+// STEP 5: Navigate to certifications and Add certification
+// ===========================================================================  
 
      // ===========================================================================
-      // STEP 3: Add or Edit Consents 
+      // STEP 6: Add or Edit Consents 
       // ===========================================================================
-      test('Step 3: Navigate to Consents and Add/Edit Form', async () => {
+      test('Step 5: Navigate to Consents and Add/Edit Form', async () => {
         // Use the consents workflow - it auto-detects add vs edit mode
         await pages.consentsWorkflow.fillConsents('yes');
     
