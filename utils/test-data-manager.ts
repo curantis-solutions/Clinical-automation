@@ -10,6 +10,24 @@ import { ApiClient } from './api-client';
  */
 export class TestDataManager {
   private static currentTenant: string | null = null;
+  private static _isPhysician: boolean = false;
+  private static _currentRole: string | null = null;
+
+  /**
+   * Set the login role (MD, RN, SW, etc.) — also updates isPhysician flag
+   */
+  static setRole(role: string): void {
+    this._currentRole = role;
+    this._isPhysician = role.toUpperCase() === 'MD';
+    console.log(`Role set to: ${role} (isPhysician: ${this._isPhysician})`);
+  }
+
+  /**
+   * Get the current login role
+   */
+  static getRole(): string | null {
+    return this._currentRole;
+  }
 
   /**
    * Set the current tenant for tests
@@ -79,27 +97,10 @@ export class TestDataManager {
   }
 
   /**
-   * Get physician name for search
-   * @returns Physician short name (e.g., "MDcypress")
+   * Get physician name for search (short config value that works in all dropdowns)
    */
   static getPhysician(): string {
     return this.getData().physician;
-  }
-
-  /**
-   * Get physician full name
-   * @returns Physician full name (e.g., "MDcypress cypresslast")
-   */
-  static getPhysicianFullName(): string {
-    return this.getData().physicianFullName;
-  }
-
-  /**
-   * Get physician name with credentials
-   * @returns Physician name with credentials (e.g., "cypresslast, MDcypress (MD)")
-   */
-  static getPhysicianWithCredentials(): string {
-    return this.getData().physicianWithCredentials;
   }
 
   /**
@@ -108,14 +109,6 @@ export class TestDataManager {
    */
   static getCareTeam(): string {
     return this.getData().careTeam;
-  }
-
-  /**
-   * Get default facility name
-   * @returns Facility name
-   */
-  static getFacility(): string {
-    return this.getData().facility;
   }
 
   /**
@@ -143,66 +136,39 @@ export class TestDataManager {
   }
 
   /**
-   * Get MD employee ID (if available)
-   * @returns MD employee ID or undefined
-   */
-  static getEmployeeIdMD(): string | undefined {
-    return this.getData().employeeIdMD;
-  }
-
-  /**
-   * Get RN employee ID (if available)
-   * @returns RN employee ID or undefined
-   */
-  static getEmployeeIdRN(): string | undefined {
-    return this.getData().employeeIdRN;
-  }
-
-  /**
-   * Get RN sign name (for visit signatures)
-   * Uses employeeIdRN or physicianFullName as fallback
-   * @returns RN signature name
-   */
-  static getRNSign(): string {
-    const data = this.getData();
-    return data.rnSign || data.employeeIdRN || data.physicianFullName || 'RN Default';
-  }
-
-  /**
-   * Intercept the /users/ API response to resolve the physician search term.
+   * Intercept the /users/ API response to detect the logged-in user's role.
    * Must be called BEFORE login — the app fires GET /users/ during dashboard load.
    *
-   * - If the logged-in user is a physician: returns their username (e.g. "medical directorcch")
-   * - If not a physician (RN, SW, etc.): falls back to hardcoded config
-   * - If interception fails: falls back to hardcoded config
+   * Sets `isPhysician` based on the API response. The physician search term
+   * always comes from the config (`physician` field) since it's a short name
+   * that works reliably in all dropdowns (care team, certification, LOC).
    *
    * @example
    *   const physicianPromise = TestDataManager.interceptPhysicianName(page);
    *   await login(...);
-   *   const name = await physicianPromise;
-   *   certificationWorkflow.setPhysicianName(name);
+   *   await physicianPromise;
+   *   // isPhysician() now reflects the logged-in user's role
    *
    * @param page - Playwright Page (call BEFORE login)
-   * @returns Promise resolving to the physician search term
+   * @returns Promise resolving to the physician search term (from config)
    */
+  static isPhysician(): boolean {
+    return this._isPhysician;
+  }
+
   static interceptPhysicianName(page: Page): Promise<string> {
+    const physician = this.getData().physician;
     return ApiClient.interceptUserInfo(page)
       .then((userInfo) => {
-        if (userInfo.isPhysician) {
-          // Logged-in user is a physician — use their username as the search term
-          console.log(`Dynamic physician name resolved: "${userInfo.username}" (logged-in physician)`);
-          return userInfo.username;
-        }
-        // Non-physician user (RN, SW, etc.) — fall back to hardcoded config
-        const fallback = this.getPhysician();
-        console.log(`Logged-in user is not a physician — using config: "${fallback}"`);
-        return fallback;
+        this._isPhysician = userInfo.isPhysician;
+        console.log(`User "${userInfo.username}" isPhysician: ${userInfo.isPhysician} — using config physician: "${physician}"`);
+        return physician;
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Failed to intercept physician name: ${message}`);
-        console.warn('Falling back to hardcoded physician from test data config');
-        return this.getPhysician();
+        console.warn(`Failed to intercept user info: ${message}`);
+        console.warn('isPhysician defaults to role-based detection');
+        return physician;
       });
   }
 
@@ -229,13 +195,11 @@ export class TestDataManager {
   static printConfig(): void {
     const env = this.getEnvironment();
     const tenant = this.getTenant();
-    const data = this.getData();
 
     console.log('\n📋 Current Test Data Configuration:');
     console.log(`   Environment: ${env}`);
     console.log(`   Tenant: ${tenant}`);
-    console.log(`   Physician: ${data.physician}`);
-    console.log(`   Care Team: ${data.careTeam}`);
-    console.log(`   Facility: ${data.facility}\n`);
+    console.log(`   Physician: ${this.getPhysician()}`);
+    console.log(`   Care Team: ${this.getCareTeam()}\n`);
   }
 }

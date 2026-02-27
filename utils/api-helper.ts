@@ -60,8 +60,9 @@ export function saveTestData(data: Partial<TestData>): void {
     try {
       const fileContent = fs.readFileSync(TEST_DATA_FILE, 'utf-8');
       existingData = JSON.parse(fileContent);
-    } catch (error) {
-      console.warn('⚠️ Could not read existing test data:', error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('⚠️ Could not read existing test data:', message);
     }
   }
 
@@ -86,8 +87,9 @@ export function loadTestData(): TestData {
   try {
     const fileContent = fs.readFileSync(TEST_DATA_FILE, 'utf-8');
     return JSON.parse(fileContent);
-  } catch (error) {
-    console.error('❌ Failed to load test data:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('❌ Failed to load test data:', message);
     return {};
   }
 }

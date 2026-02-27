@@ -24,7 +24,7 @@
 import { Page } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPagenew } from '../../pages_new/patient.pagenew';
+import { PatientPagenew } from '../../pages/patient.pagenew';
 import { CareType, Gender } from '../../types/patient.types';
 import { setupPatientChartListener } from '../../utils/api-helper';
 import { PatientDataFixture, updateFixtureRuntimeData } from '../../fixtures/patient-data.fixture';

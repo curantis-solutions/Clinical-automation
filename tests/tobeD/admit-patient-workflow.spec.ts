@@ -14,8 +14,8 @@
  * PAGE OBJECTS USED:
  * - LoginPage: claude-qa-automation\pages\login.page.ts
  * - DashboardPage: claude-qa-automation\pages\dashboard.page.ts
- * - PatientPage: claude-qa-automation\pages_new\patient.page.ts
- * - PatientDetailsPage: claude-qa-automation\pages_new\patient-details.page.ts
+ * - PatientPage: claude-qa-automation\pages\patient.page.ts
+ * - PatientDetailsPage: claude-qa-automation\pages\patient-details.page.ts
  *
  * =============================================================================
  */
@@ -24,8 +24,8 @@ import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { faker } from '@faker-js/faker';
 import { LoginPage } from '../../pages/login.page';
 import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPage } from '../../pages_new/patient.pagenew';
-import { PatientDetailsPage } from '../../pages_new/patient-details.page';
+import { PatientPagenew as PatientPage } from '../../pages/patient.pagenew';
+import { PatientDetailsPage } from '../../pages/patient-details.page';
 import { CredentialManager } from '../../utils/credential-manager';
 import { PatientData } from '../../types/patient.types';
 import { setupPatientChartListener } from '../../utils/api-helper';

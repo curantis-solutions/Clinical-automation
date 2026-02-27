@@ -96,32 +96,14 @@ export interface CareTeamFormData {
 export const CARE_TEAM_NAMES: Record<string, Record<string, string>> = {
   qa: {
     cth: 'acyIDGQA',
-    integrum: 'Default Team',
+    integrum: 'Green',
   },
   staging: {
     cth: 'Team 1',
   },
   prod: {
-    cth: 'Team 1',
-    cch: 'Primary Team',
-  },
-};
-
-/**
- * Default Physician Names by Environment and Tenant
- * Used when no specific physician name is provided
- */
-export const DEFAULT_PHYSICIAN_NAMES: Record<string, Record<string, string>> = {
-  qa: {
-    cth: 'cypresslast',
-    integrum: 'test',
-  },
-  staging: {
-    cth: 'cypress',
-  },
-  prod: {
-    cth: 'Smith',
-    cch: 'Jones',
+    cth: 'Automation',
+    cch: 'ACypressIDG',
   },
 };
 
@@ -149,7 +131,7 @@ export const CARE_TEAM_FORM_DATA: CareTeamFormData = {
 
   // === Attending Physician ===
   attendingPhysician: {
-    searchName: '',                         // Leave empty - workflow looks up from DEFAULT_PHYSICIAN_NAMES
+    searchName: '',                         // Leave empty - workflow looks up from TestDataManager.getPhysician()
     startDate: '',                          // MM/DD/YYYY format, empty = use today's date
     endDate: '',                            // MM/DD/YYYY format (optional)
     isPrimary: true,                        // Set as primary physician

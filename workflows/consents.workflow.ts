@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { ConsentsPage } from '../pages_new/consents.page';
+import { ConsentsPage } from '../pages/consents.page';
 
 /**
  * Consents Workflow

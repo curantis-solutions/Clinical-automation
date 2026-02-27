@@ -39,6 +39,7 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once for all tests
+    TestDataManager.setRole('RN');
     console.log('🔐 Logging in to QA environment...');
     await pages.login.goto();
 
@@ -50,9 +51,8 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
     console.log('✅ Login successful - ready for tests');
 
-    // Resolve the intercepted physician name (falls back to hardcoded config)
-    const physicianName = await physicianNamePromise;
-    pages.certificationWorkflow.setPhysicianName(physicianName);
+    // Resolve the intercepted physician name (stored automatically in TestDataManager)
+    await physicianNamePromise;
   });
 
   test.afterAll(async () => {
@@ -316,12 +316,10 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
   
       console.log("Benefit added successfully");
     });
-// ===========================================================================
-// STEP 5: Navigate to certifications and Add certification
-// ===========================================================================  
+
 
      // ===========================================================================
-      // STEP 6: Add or Edit Consents 
+      // STEP 5: Add or Edit Consents 
       // ===========================================================================
       test('Step 5: Navigate to Consents and Add/Edit Form', async () => {
         // Use the consents workflow - it auto-detects add vs edit mode
@@ -331,9 +329,9 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
       });
 
   // ===========================================================================
-  // STEP 4: Add Verbal Certification
+  // STEP 6: Add Verbal Certification
   // ===========================================================================
-  test('Step 4: Add Verbal Certification', async () => {
+  test('Step 6a: Add Verbal Certification', async () => {
     await pages.certificationWorkflow.fillCertificationDetails('add', 'Verbal');
 
     // Verify: form should be closed (save button gone)
@@ -348,9 +346,9 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
   });
 
   // ===========================================================================
-  // STEP 5: Add Written Certification
+  // STEP 6: Add Written Certification
   // ===========================================================================
-  test('Step 5: Add Written Certification', async () => {
+  test('Step 6b: Add Written Certification', async () => {
     await pages.certificationWorkflow.fillCertificationDetails('add', 'Written', [], {
       certType: 'Written',
       certifyingSignedOn: '01/01/2026',
@@ -367,5 +365,31 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
 
     console.log('Written certification added and verified in grid');
   });
+
+    // ===========================================================================
+    // STEP 7: Add Routine Home Care LOC with Q5004 care location
+    // ===========================================================================
+    test('Step 7a: Add Routine Home Care LOC (Q5004, 02/01/2026)', async () => {
+      await pages.locWorkflow.addLOCOrder('Routine Home Care', {
+        careLocationType: 'Q5004',
+        startDate: '02/01/2026',
+      });
+      console.log('Added Routine Home Care LOC with Q5004 care location');
+    });
+
+    // ===========================================================================
+      // STEP 7: Void existing LOC and create Respite Care replacement
+      // ===========================================================================
+      test('Step 7b: Void and create Respite Care (02/01/2026)', async () => {
+        await pages.locWorkflow.voidAndRecreateLOCOrder(
+          { voidReason: 'Switching to Respite Care' },
+          'Respite Care',
+          { startDate: '02/01/2026' }
+        );
+        console.log('Voided existing LOC and created Respite Care replacement');
+      
+      });
+
+
 
 });

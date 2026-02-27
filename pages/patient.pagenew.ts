@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test';
-import { BasePage } from '@pages/base.page';
+import { BasePage } from './base.page';
 import { PatientData, CareType } from '../types/patient.types';
 import { DateHelper } from '@utils/date-helper';
 

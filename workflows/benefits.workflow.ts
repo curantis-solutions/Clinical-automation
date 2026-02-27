@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BenefitFormData } from '../types/benefit.types';
-import { BenefitsAddPage } from '../pages_new/benefits-add.page';
+import { BenefitsAddPage } from '../pages/benefits-add.page';
 import { BENEFIT_FORM_DATA, PAYER_NAMES, PayerType, BenefitType, createBenefitData } from '../fixtures/benefit-fixtures';
 import { DateHelper } from '../utils/date-helper';
 

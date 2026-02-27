@@ -1,9 +1,8 @@
 import { Page } from '@playwright/test';
-import { CareTeamPage, CaregiverData, AttendingPhysicianData } from '../pages_new/care-team.page';
+import { CareTeamPage, CaregiverData, AttendingPhysicianData } from '../pages/care-team.page';
 import {
   CARE_TEAM_FORM_DATA,
   CARE_TEAM_NAMES,
-  DEFAULT_PHYSICIAN_NAMES,
   CareTeamFormData,
   CaregiverFormData,
   AttendingPhysicianFormData,
@@ -13,6 +12,7 @@ import {
   createCaregiverData,
 } from '../fixtures/care-team-fixtures';
 import { DateHelper } from '../utils/date-helper';
+import { TestDataManager } from '../utils/test-data-manager';
 
 /**
  * Care Team Workflow
@@ -470,10 +470,7 @@ export class CareTeamWorkflow {
    * Get default physician name based on environment and tenant
    */
   private getPhysicianNameForEnv(): string {
-    const env = (process.env.TEST_ENV || 'qa').toLowerCase();
-    const tenant = (process.env.TENANT || 'cth').toLowerCase();
-
-    return DEFAULT_PHYSICIAN_NAMES[env]?.[tenant] || DEFAULT_PHYSICIAN_NAMES['qa']['cth'];
+    return TestDataManager.getPhysician();
   }
 
   /**

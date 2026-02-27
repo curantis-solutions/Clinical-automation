@@ -50,9 +50,8 @@ const physicianPromise = TestDataManager.interceptPhysicianName(sharedPage);
 await pages.login.login(username, password);
 await page.waitForURL(/dashboard/);
 
-// AFTER login — resolve and set the physician name
-const physicianName = await physicianPromise;
-pages.certificationWorkflow.setPhysicianName(physicianName);
+// Resolve the intercepted physician name (stored automatically in TestDataManager)
+await physicianPromise;
 ```
 
 ### 3. Add a Verbal certification
@@ -132,12 +131,6 @@ After login, the app calls `GET /idg/company-resources/users/` which returns the
 | `fieldsToEdit` | `string[]` | `[]` | Fields to update (edit mode only) |
 | `customData` | `Partial<CertificationFormData>` | `undefined` | Override default form values |
 | `editData` | `CertificationEditData` | `undefined` | Edit-mode data (reason for change) |
-
-### `setPhysicianName(name)`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `string` | Physician search term to use instead of hardcoded config |
 
 ---
 
@@ -278,9 +271,8 @@ test.describe.serial('Certification Tests @smoke', () => {
     await pages.login.login(credentials.username, credentials.password);
     await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
 
-    // AFTER login
-    const physicianName = await physicianPromise;
-    pages.certificationWorkflow.setPhysicianName(physicianName);
+    // Resolve the intercepted physician name (stored automatically in TestDataManager)
+    await physicianPromise;
   });
 
   test('Navigate to patient', async () => {
