@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
-import { BasePage } from '../pages/base.page';
+import { BasePage } from './base.page';
 import { CertificationType } from '../types/certification.types';
-import { selectDateFormatted } from '../utils/date-helper';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Certification Page Object
@@ -450,7 +450,7 @@ export class CertificationPage extends BasePage {
   async fillCertifyingObtainedOn(date: string): Promise<void> {
     await this.page.locator(this.selectors.certifyingObtainedOnPicker).click();
     await this.page.waitForTimeout(500);
-    await selectDateFormatted(this.page, date);
+    await DateHelper.selectDateFormatted(this.page, date);
     console.log(`Set certifying obtained on: ${date}`);
   }
 
@@ -475,7 +475,7 @@ export class CertificationPage extends BasePage {
   async fillAttendingObtainedOn(date: string): Promise<void> {
     await this.page.locator(this.selectors.attendingObtainedOnPicker).click();
     await this.page.waitForTimeout(500);
-    await selectDateFormatted(this.page, date);
+    await DateHelper.selectDateFormatted(this.page, date);
     console.log(`Set attending obtained on: ${date}`);
   }
 
@@ -504,7 +504,7 @@ export class CertificationPage extends BasePage {
   async fillCertifyingSignedOn(date: string): Promise<void> {
     await this.page.locator(this.selectors.certifyingSignedOnPicker).click();
     await this.page.waitForTimeout(500);
-    await selectDateFormatted(this.page, date);
+    await DateHelper.selectDateFormatted(this.page, date);
     console.log(`Set certifying signed on: ${date}`);
   }
 
@@ -521,7 +521,7 @@ export class CertificationPage extends BasePage {
   async fillAttendingSignedOn(date: string): Promise<void> {
     await this.page.locator(this.selectors.attendingSignedOnPicker).click();
     await this.page.waitForTimeout(500);
-    await selectDateFormatted(this.page, date);
+    await DateHelper.selectDateFormatted(this.page, date);
     console.log(`Set attending signed on: ${date}`);
   }
 

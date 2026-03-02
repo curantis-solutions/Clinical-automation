@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { BasePage } from '../pages/base.page';
+import { BasePage } from './base.page';
 import { BillRate, PatientLiability } from '../types/benefit.types';
 import { selectNgOption, selectNgOptionByIndex, selectDateFromPicker, clickCalendarButtonByLabel } from '../utils/form-helpers';
 

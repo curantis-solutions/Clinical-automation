@@ -6,8 +6,8 @@ import {
   VerbalCertificationFormData,
   WrittenCertificationFormData,
 } from '../types/certification.types';
-import { CertificationPage } from '../pages_new/certification.page';
-import { getTodaysDate } from '../utils/date-helper';
+import { CertificationPage } from '../pages/certification.page';
+import { DateHelper } from '../utils/date-helper';
 import { TestDataManager } from '../utils/test-data-manager';
 
 /**
@@ -38,20 +38,9 @@ import { TestDataManager } from '../utils/test-data-manager';
  */
 export class CertificationWorkflow {
   private readonly formPage: CertificationPage;
-  private physicianOverride: string | null = null;
 
   constructor(private page: Page) {
     this.formPage = new CertificationPage(page);
-  }
-
-  /**
-   * Set a dynamic physician name to use instead of the hardcoded config value.
-   * Call this after login with the name resolved by TestDataManager.interceptPhysicianName().
-   * @param name - Physician search term (username for MDs, config value for non-physicians)
-   */
-  setPhysicianName(name: string): void {
-    this.physicianOverride = name;
-    console.log(`Physician name override set to: "${name}"`);
   }
 
   /**
@@ -255,8 +244,8 @@ export class CertificationWorkflow {
    * Build default form data based on cert type
    */
   private getDefaults(certType: CertificationType): CertificationFormData {
-    const physician = this.physicianOverride || TestDataManager.getPhysician();
-    const today = getTodaysDate();
+    const physician = TestDataManager.getPhysician();
+    const today = DateHelper.getTodaysDate();
 
     if (certType === 'Verbal') {
       return {

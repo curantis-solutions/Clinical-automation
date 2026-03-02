@@ -17,23 +17,16 @@ import { test as authTest } from './auth.fixture';
 import { Page } from '@playwright/test';
 import { LoginPage } from '../pages/login.page';
 import { DashboardPage } from '../pages/dashboard.page';
-import { PatientPage } from '../pages/patient.page';
-import { PatientProfilePage } from '../pages/patient-profile.page';
-import { CareTeamPage } from '../pages/care-team.page';
-import { BenefitsPage } from '../pages/benefits.page';
-import { CertificationsPage } from '../pages/certifications.page';
-import { ConsentsPage } from '../pages/consents.page';
-import { OrderManagementPage } from '../pages/order-management.page';
-import { HopePreviewPage } from '../pages/hope-preview.page';
-import { PatientPagenew } from 'pages_new/patient.pagenew';
-import { PatientDetailsPage } from 'pages_new/patient-details.page';
+import { PatientPagenew } from '../pages/patient.pagenew';
+import { PatientDetailsPage } from '../pages/patient-details.page';
+import { CertificationPage } from '../pages/certification.page';
+import { LOCPage } from '../pages/loc.page';
 import { PatientWorkflow } from '../workflows/patient-profile';
 import { BenefitsWorkflow } from '../workflows/benefits.workflow';
 import { ConsentsWorkflow } from '../workflows/consents.workflow';
-import { CertificationPage } from '../pages_new/certification.page';
 import { CertificationWorkflow } from '../workflows/certification.workflow';
 import { CareTeamWorkflow } from '../workflows/care-team.workflow';
-import { CareTeamPage as CareTeamPageNew } from '../pages_new/care-team.page';
+import { LOCWorkflow } from '../workflows/loc.workflow';
 
 /**
  * Collection of all page objects
@@ -41,16 +34,7 @@ import { CareTeamPage as CareTeamPageNew } from '../pages_new/care-team.page';
 export interface PageObjects {
   login: LoginPage;
   dashboard: DashboardPage;
-  patient: PatientPage;
-  patientProfile: PatientProfilePage;
-  careTeam: CareTeamPage;
-  careTeamPageNew: CareTeamPageNew;
-  benefits: BenefitsPage;
-  certifications: CertificationsPage;
-  consents: ConsentsPage;
-  orderManagement: OrderManagementPage;
-  hopePreview: HopePreviewPage;
-  patientPageNew: PatientPagenew;
+  patient: PatientPagenew;
   patientDetails: PatientDetailsPage;
   patientWorkflow: PatientWorkflow;
   benefitsWorkflow: BenefitsWorkflow;
@@ -58,6 +42,8 @@ export interface PageObjects {
   certification: CertificationPage;
   certificationWorkflow: CertificationWorkflow;
   careTeamWorkflow: CareTeamWorkflow;
+  loc: LOCPage;
+  locWorkflow: LOCWorkflow;
 }
 
 // Define fixture types
@@ -78,16 +64,7 @@ function createPageObjectsForPage(page: Page): PageObjects {
   return {
     login: new LoginPage(page),
     dashboard: new DashboardPage(page),
-    patient: new PatientPage(page),
-    patientProfile: new PatientProfilePage(page),
-    careTeam: new CareTeamPage(page),
-    careTeamPageNew: new CareTeamPageNew(page),
-    benefits: new BenefitsPage(page),
-    certifications: new CertificationsPage(page),
-    consents: new ConsentsPage(page),
-    orderManagement: new OrderManagementPage(page),
-    hopePreview: new HopePreviewPage(page),
-    patientPageNew: new PatientPagenew(page),
+    patient: new PatientPagenew(page),
     patientDetails: new PatientDetailsPage(page),
     patientWorkflow: new PatientWorkflow(page),
     benefitsWorkflow: new BenefitsWorkflow(page),
@@ -95,6 +72,8 @@ function createPageObjectsForPage(page: Page): PageObjects {
     certification: new CertificationPage(page),
     certificationWorkflow: new CertificationWorkflow(page),
     careTeamWorkflow: new CareTeamWorkflow(page),
+    loc: new LOCPage(page),
+    locWorkflow: new LOCWorkflow(page),
   };
 }
 

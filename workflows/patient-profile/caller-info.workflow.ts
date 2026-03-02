@@ -6,7 +6,7 @@
 
 import { Page } from '@playwright/test';
 import { faker } from '@faker-js/faker';
-import { PatientDetailsPage } from '../../pages_new/patient-details.page';
+import { PatientDetailsPage } from '../../pages/patient-details.page';
 
 /**
  * Configuration interface for caller information

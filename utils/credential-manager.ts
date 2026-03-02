@@ -9,6 +9,12 @@ export interface Credentials {
 }
 
 export class CredentialManager {
+  private static _currentRole: string | null = null;
+
+  /** Get the role used at login (MD, RN, SW, etc.) */
+  static getCurrentRole(): string | null {
+    return this._currentRole;
+  }
   /**
    * Get credentials for a specific environment, tenant, and role
    * @param environment - The environment (dev, qa, staging, prod)

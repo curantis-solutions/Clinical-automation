@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { BasePage } from './base.pagenew';
+import { BasePage } from './base.page';
 
 /**
  * Patient Details Page Object
