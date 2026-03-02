@@ -11,21 +11,18 @@
  * - Fill complete Admit Patient form
  * - Save and verify patient creation
  *
- * PAGE OBJECTS USED:
- * - LoginPage: claude-qa-automation\pages\login.page.ts
- * - DashboardPage: claude-qa-automation\pages\dashboard.page.ts
- * - PatientPage: claude-qa-automation\pages\patient.page.ts
- * - PatientDetailsPage: claude-qa-automation\pages\patient-details.page.ts
+ * PAGE OBJECTS USED (via createPageObjectsForPage factory):
+ * - pages.login:          pages\login.page.ts
+ * - pages.dashboard:      pages\dashboard.page.ts
+ * - pages.patient:        pages\patient.pagenew.ts
+ * - pages.patientDetails: pages\patient-details.page.ts
  *
  * =============================================================================
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { test, expect, createPageObjectsForPage, type PageObjects } from '@fixtures/page-objects.fixture';
+import { Page, BrowserContext } from '@playwright/test';
 import { faker } from '@faker-js/faker';
-import { LoginPage } from '../../pages/login.page';
-import { DashboardPage } from '../../pages/dashboard.page';
-import { PatientPagenew as PatientPage } from '../../pages/patient.pagenew';
-import { PatientDetailsPage } from '../../pages/patient-details.page';
 import { CredentialManager } from '../../utils/credential-manager';
 import { PatientData } from '../../types/patient.types';
 import { setupPatientChartListener } from '../../utils/api-helper';
@@ -35,10 +32,7 @@ import { setupPatientChartListener } from '../../utils/api-helper';
 // =============================================================================
 let sharedPage: Page;
 let sharedContext: BrowserContext;
-let loginPage: LoginPage;
-let dashboardPage: DashboardPage;
-let patientPage: PatientPage;
-let patientDetailsPage: PatientDetailsPage;
+let pages: PageObjects;
 
 // Patient data storage
 let patientFirstName: string;
@@ -67,11 +61,8 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     sharedPage.setDefaultTimeout(30000);
     sharedPage.setDefaultNavigationTimeout(30000);
 
-    // Initialize page objects
-    loginPage = new LoginPage(sharedPage);
-    dashboardPage = new DashboardPage(sharedPage);
-    patientPage = new PatientPage(sharedPage);
-    patientDetailsPage = new PatientDetailsPage(sharedPage);
+    // Initialize all page objects via factory
+    pages = createPageObjectsForPage(sharedPage);
   });
 
   /**
@@ -92,13 +83,13 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('🔐 Logging into QA environment...');
 
     // Navigate to login page
-    await loginPage.goto();
+    await pages.login.goto();
 
     // Get RN credentials from environment
     const credentials = CredentialManager.getCredentials(undefined, 'RN');
 
     // Perform login
-    await loginPage.login(credentials.username, credentials.password);
+    await pages.login.login(credentials.username, credentials.password);
 
     // Wait for dashboard redirect
     await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
@@ -119,29 +110,19 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('🎯 Navigating to Patient module...');
 
     // Ensure we're on dashboard
-    const isDashboardVisible = await dashboardPage.isDashboardDisplayed();
+    const isDashboardVisible = await pages.dashboard.isDashboardDisplayed();
     if (!isDashboardVisible) {
-      await dashboardPage.goto();
+      await pages.dashboard.goto();
     }
 
-    // Click Rubik's Cube icon
-    await dashboardPage.clickRubiksCube();
+    // Wait for page to fully load
+    await sharedPage.waitForLoadState('networkidle');
+    await sharedPage.waitForTimeout(2000);
 
-    // Verify module menu opened
-    const isMenuOpen = await dashboardPage.isModuleMenuOpen();
-    expect(isMenuOpen).toBeTruthy();
-
-    // Click on "Patient" module directly (menu is already open)
-    const moduleSelector = '[data-cy="Patient"]';
-    await sharedPage.waitForSelector(moduleSelector, { timeout: 10000 });
-    const moduleElement = sharedPage.locator(moduleSelector).first();
-    await moduleElement.scrollIntoViewIfNeeded();
-    await moduleElement.click();
-
-    console.log('✅ Clicked on Patient module');
+    // Navigate to Patient module (opens Rubik's Cube menu and clicks Patient)
+    await pages.dashboard.navigateToModule('Patient');
 
     // Wait for Patient page to load
-    await sharedPage.waitForLoadState('networkidle');
     await sharedPage.waitForTimeout(2000);
 
     console.log('✅ Step 02 Complete: Navigated to Patient module');
@@ -162,7 +143,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     });
 
     // Click Add Patient button
-    await patientPage.clickAddPatient();
+    await pages.patient.clickAddPatient();
 
     // Wait for form to appear
     await sharedPage.waitForTimeout(1500);
@@ -224,11 +205,11 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
 
     // Select Care Type: Hospice
     console.log('  → Selecting Care Type: Hospice');
-    await patientPage.selectCareType('Hospice');
+    await pages.patient.selectCareType('Hospice');
 
     // Fill Demographics
     console.log(`  → Filling demographics: ${patientFirstName} ${patientLastName}`);
-    await patientPage.fillDemographics(patientData);
+    await pages.patient.fillDemographics(patientData);
 
     console.log('✅ Step 04 Complete: Demographics filled');
   });
@@ -242,7 +223,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('📝 Filling additional information...');
 
     // Fill additional info (marital status, language, religion, ethnicity)
-    await patientPage.fillAdditionalInfo(patientData);
+    await pages.patient.fillAdditionalInfo(patientData);
 
     console.log('✅ Step 05 Complete: Additional information filled');
   });
@@ -256,7 +237,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('📝 Filling contact information...');
 
     // Fill contact info (phone, email)
-    await patientPage.fillContactInfo(patientData);
+    await pages.patient.fillContactInfo(patientData);
 
     console.log('✅ Step 06 Complete: Contact information filled');
     console.log(`  → Phone: ${patientData.contactInfo.phoneNumber}`);
@@ -272,7 +253,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('📝 Filling address information...');
 
     // Fill address (street, city, state, zip)
-    await patientPage.fillAddress(patientData);
+    await pages.patient.fillAddress(patientData);
 
     console.log('✅ Step 07 Complete: Address information filled');
     console.log(`  → Address: ${patientData.address.streetAddress}`);
@@ -288,7 +269,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('📝 Filling hospice-specific fields...');
 
     // Fill hospice-specific fields (skilled bed)
-    await patientPage.fillHospiceSpecificFields(false);
+    await pages.patient.fillHospiceSpecificFields(false);
 
     console.log('✅ Step 08 Complete: Hospice-specific fields filled');
     console.log('  → Skilled Bed: No');
@@ -303,7 +284,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('💾 Saving patient...');
 
     // Save the patient
-    await patientPage.savePatient();
+    await pages.patient.savePatient();
 
     // Wait for save operation to complete
     await sharedPage.waitForLoadState('networkidle');
@@ -328,20 +309,20 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     // Search for the patient
     if (patientId) {
       console.log(`  → Searching by Patient ID: ${patientId}`);
-      await patientPage.searchPatient(String(patientId));
+      await pages.patient.searchPatient(String(patientId));
     } else {
       console.log(`  → Searching by Last Name: ${patientLastName}`);
-      await patientPage.searchPatient(patientLastName);
+      await pages.patient.searchPatient(patientLastName);
     }
 
     await sharedPage.waitForTimeout(3000);
 
     // Verify patient exists in grid
-    const patientExists = await patientPage.verifyPatientInGrid(0);
+    const patientExists = await pages.patient.verifyPatientInGrid(0);
     expect(patientExists).toBeTruthy();
 
     // Verify patient name matches
-    const searchResult = await patientPage.verifyPatientNameInGrid(patientLastName);
+    const searchResult = await pages.patient.verifyPatientNameInGrid(patientLastName);
     expect(searchResult.found).toBeTruthy();
 
     console.log('✅ Step 10 Complete: Patient verified in grid');
@@ -358,7 +339,7 @@ test.describe.serial('Admit Patient Workflow @workflow @smoke', () => {
     console.log('📂 Opening patient chart...');
 
     // Click on patient in grid
-    await patientPage.getPatientFromGrid(0);
+    await pages.patient.getPatientFromGrid(0);
 
     // Wait for patient chart to load
     await sharedPage.waitForLoadState('networkidle');
