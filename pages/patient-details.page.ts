@@ -292,6 +292,20 @@ export class PatientDetailsPage extends BasePage {
     patientDetailsSection: '.patient-details',
     notAuthorizedMessage: '.not_authorized_box',
     moreIcon: '.more-icon',
+
+    // Sidebar Navigation Tabs
+    sidebarTab: (section: string) => `[data-cy="btn-nav-bar-item-${section}"]`,
+
+    // Sidebar Checkmark Icons (conditionally rendered when section is complete)
+    sectionCheckmark: (section: string) => `[data-cy="icon-nav-bar-item-${section}"]`,
+
+    // Admit Patient / Cancel Referral Buttons
+    admitPatientButton: '[data-cy="btn-admit-patient"]',
+    cancelReferralButton: '[data-cy="btn-cancel-referral"]',
+
+    // Admission Complete Modal
+    admissionModalSave: '#inputModalSubmit',
+    admissionModalCancel: '#inputModalCancel',
   };
 
   constructor(page: Page) {
@@ -2349,13 +2363,254 @@ export class PatientDetailsPage extends BasePage {
     console.log('Patient Details page loaded');
   }
 
+  // ==================== Sidebar Checkmark Methods ====================
+
+  /**
+   * Check if a section's checkmark icon is visible
+   * @param section - Section name: 'profile' | 'care-team' | 'benefits' | 'certifications' | 'consents'
+   */
+  async isSectionCheckmarkVisible(section: string): Promise<boolean> {
+    const selector = this.selectors.sectionCheckmark(section);
+    return await this.isElementVisible(selector);
+  }
+
+  /**
+   * Wait for a section's checkmark icon to appear
+   * @param section - Section name
+   * @param timeout - Timeout in ms (default 15000)
+   */
+  async waitForSectionCheckmark(section: string, timeout: number = 15000): Promise<void> {
+    const selector = this.selectors.sectionCheckmark(section);
+    await this.page.waitForSelector(selector, { state: 'visible', timeout });
+    console.log(`Checkmark visible for section: ${section}`);
+  }
+
+  /**
+   * Get list of sections that have checkmarks visible
+   */
+  async getCompletedSections(): Promise<string[]> {
+    const sections = ['profile', 'care-team', 'benefits', 'certifications', 'consents'];
+    const completed: string[] = [];
+    for (const section of sections) {
+      if (await this.isSectionCheckmarkVisible(section)) {
+        completed.push(section);
+      }
+    }
+    return completed;
+  }
+
+  /**
+   * Check if all 5 required sections have checkmarks
+   */
+  async areAllSectionsComplete(): Promise<boolean> {
+    const completed = await this.getCompletedSections();
+    return completed.length === 5;
+  }
+
+  // ==================== Admit Patient Methods ====================
+
+  /**
+   * Check if Admit Patient button is visible
+   */
+  async isAdmitPatientButtonVisible(): Promise<boolean> {
+    return await this.isElementVisible(this.selectors.admitPatientButton);
+  }
+
+  /**
+   * Click the Admit Patient button
+   */
+  async clickAdmitPatient(): Promise<void> {
+    await this.waitForElement(this.selectors.admitPatientButton);
+    await this.page.locator(this.selectors.admitPatientButton).click();
+    console.log('Clicked Admit Patient button');
+  }
+
+  /**
+   * Confirm the Admission Complete modal, optionally setting the admit date
+   * @param admitDate - Optional date string in MM/DD/YYYY format. If not provided, keeps the default (today).
+   */
+  async confirmAdmission(admitDate?: string): Promise<void> {
+    await this.waitForElement(this.selectors.admissionModalSave, 10000);
+
+    // If a custom admit date is provided, use the Ionic datetime picker
+    if (admitDate) {
+      await this.selectAdmitDate(admitDate);
+    }
+
+    await this.page.locator(this.selectors.admissionModalSave).click();
+    await this.page.waitForLoadState('networkidle');
+    console.log(`Confirmed admission - clicked Save on modal${admitDate ? ` (date: ${admitDate})` : ''}`);
+  }
+
+  /**
+   * Select admit date using the Ionic picker (3 columns: Month, Day, Year).
+   * Picker is opened by clicking #admitDate, confirmed with .picker-toolbar-button button.
+   * @param dateString - Date in MM/DD/YYYY format
+   */
+  private async selectAdmitDate(dateString: string): Promise<void> {
+    const [month, day, year] = dateString.split('/');
+    const monthPadded = month.padStart(2, '0');
+    const dayPadded = day.padStart(2, '0');
+
+    // Open the picker
+    await this.page.locator('#admitDate').click();
+    await this.page.waitForTimeout(1000);
+
+    // Wait for picker columns to be visible
+    await this.page.locator('.picker-columns').waitFor({ state: 'visible', timeout: 5000 });
+
+    // Helper: use touch event simulation with REAL time delays to scroll a picker column.
+    //
+    // Why this approach: Ionic's picker calculates velocity from the time between touchmove
+    // events. If all events are dispatched synchronously (no real time gaps), Ionic sees
+    // near-infinite velocity and adds momentum, causing overshoot. By using async delays
+    // (setTimeout) between touchmove events and pausing before touchend, the velocity
+    // at release is ~0, so scroll-snap lands precisely on the target option.
+    const selectInColumn = async (colIndex: number, text: string) => {
+      const col = this.page.locator('.picker-col').nth(colIndex);
+
+      // Find currently selected and target option indices
+      const { currentIdx, targetIdx, optHeight } = await col.evaluate((colEl, targetText) => {
+        const opts = Array.from(colEl.querySelectorAll('.picker-opt'));
+        const selectedIdx = opts.findIndex(o => o.classList.contains('picker-opt-selected'));
+        const tIdx = opts.findIndex(o => o.textContent?.trim() === targetText);
+        const height = opts[0]?.getBoundingClientRect().height || 34;
+        return { currentIdx: selectedIdx, targetIdx: tIdx, optHeight: height };
+      }, text);
+
+      if (targetIdx === -1) {
+        throw new Error(`Picker option "${text}" not found in column ${colIndex}`);
+      }
+
+      const steps = targetIdx - currentIdx;
+      if (steps === 0) {
+        console.log(`  Picker col ${colIndex}: "${text}" ✓ (already selected)`);
+        return;
+      }
+
+      const colBox = await col.boundingBox();
+      if (!colBox) throw new Error(`Column ${colIndex} has no bounding box`);
+      const centerX = colBox.x + colBox.width / 2;
+      const centerY = colBox.y + colBox.height / 2;
+
+      // Total distance to drag — full optHeight per step (no scaling factor needed
+      // because we eliminate momentum by pausing before touchend)
+      const totalDelta = steps * optHeight;
+      const endY = centerY - totalDelta;
+
+      // Dispatch touch events with REAL async delays inside the browser
+      // This makes Ionic calculate near-zero velocity at touchend → no momentum
+      await this.page.evaluate(({ cx, sy, ey, ci }) => {
+        return new Promise<void>((resolve) => {
+          const colEl = document.querySelectorAll('.picker-col')[ci] as HTMLElement;
+          const optsEl = colEl?.querySelector('.picker-opts') as HTMLElement;
+          if (!optsEl) { resolve(); return; }
+
+          const createTouch = (y: number) => new Touch({
+            identifier: 1, target: optsEl,
+            clientX: cx, clientY: y, pageX: cx, pageY: y,
+          });
+
+          const dispatch = (type: string, y: number, isFinal = false) => {
+            const touches = isFinal ? [] : [createTouch(y)];
+            const targetTouches = isFinal ? [] : [createTouch(y)];
+            optsEl.dispatchEvent(new TouchEvent(type, {
+              bubbles: true, cancelable: true,
+              touches, targetTouches, changedTouches: [createTouch(y)],
+            }));
+          };
+
+          // 1. touchstart
+          dispatch('touchstart', sy);
+
+          // 2. touchmove in small increments with 30ms real delays between them
+          const moveCount = Math.max(8, Math.abs(Math.round((ey - sy) / 5)));
+          const stepSize = (ey - sy) / moveCount;
+          let i = 0;
+
+          const doMove = () => {
+            i++;
+            const y = sy + stepSize * i;
+            dispatch('touchmove', y);
+
+            if (i < moveCount) {
+              setTimeout(doMove, 30);
+            } else {
+              // 3. CRITICAL: pause 300ms at final position before touchend
+              // This zeroes out the velocity calculation → no momentum
+              setTimeout(() => {
+                // One final touchmove at exact end position (velocity = 0)
+                dispatch('touchmove', ey);
+                setTimeout(() => {
+                  dispatch('touchend', ey, true);
+                  resolve();
+                }, 50);
+              }, 300);
+            }
+          };
+
+          setTimeout(doMove, 30);
+        });
+      }, { cx: centerX, sy: centerY, ey: endY, ci: colIndex });
+
+      // Wait for scroll-snap animation to settle
+      await this.page.waitForTimeout(600);
+
+      // Verify selection
+      const selectedText = await col.evaluate((colEl) => {
+        return colEl.querySelector('.picker-opt-selected')?.textContent?.trim();
+      });
+
+      if (selectedText === text) {
+        console.log(`  Picker col ${colIndex}: "${text}" ✓`);
+      } else {
+        console.log(`  Picker col ${colIndex}: wanted "${text}", got "${selectedText}" — will retry`);
+        // Single retry with fresh index calculation
+        await this.page.waitForTimeout(300);
+        await selectInColumn(colIndex, text);
+      }
+    };
+
+    // Select Year (3rd column), then Day (2nd column), then Month (1st column)
+    await selectInColumn(2, year);
+    await selectInColumn(1, dayPadded);
+    await selectInColumn(0, monthPadded);
+
+    // Click Done on the picker toolbar (last button — first is Cancel)
+    await this.page.locator('.picker-toolbar-button button').last().click();
+    await this.page.waitForTimeout(1000);
+
+    console.log(`Set admission date to: ${dateString}`);
+  }
+
+  /**
+   * Cancel the Admission Complete modal
+   */
+  async cancelAdmission(): Promise<void> {
+    await this.waitForElement(this.selectors.admissionModalCancel, 10000);
+    await this.page.locator(this.selectors.admissionModalCancel).click();
+    console.log('Cancelled admission modal');
+  }
+
+  /**
+   * Click a sidebar navigation tab
+   * @param section - Section name
+   */
+  async clickSidebarTab(section: string): Promise<void> {
+    const selector = this.selectors.sidebarTab(section);
+    await this.waitForElement(selector);
+    await this.page.locator(selector).click();
+    await this.page.waitForTimeout(1000);
+    console.log(`Clicked sidebar tab: ${section}`);
+  }
+
   /**
     * Returns string for static selectors, or function for dynamic selectors
-         */ 
-    getSelector<K extends keyof typeof this.selectors>(key: K): typeof this.selectors[K] { 
+         */
+    getSelector<K extends keyof typeof this.selectors>(key: K): typeof this.selectors[K] {
     return this.selectors[key];
   }
-  
+
 }
 
 

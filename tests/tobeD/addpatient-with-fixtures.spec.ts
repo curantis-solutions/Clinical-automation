@@ -1,11 +1,13 @@
 /**
  * =============================================================================
- * ADD PATIENT WORKFLOW - USING FIXTURES
+ * ADMIT HOSPICE PATIENT — END-TO-END TEST (Fixtures)
  * =============================================================================
  *
- * This file demonstrates how to use the reusable PatientWorkflow.addPatientFromFixture function
- * with predefined patient data fixtures.
+ * Creates a new hospice patient, fills all 5 required sections
+ * (Profile, Care Team, Benefits, Consents, Certifications),
+ * verifies each section's sidebar checkmark, then admits the patient.
  *
+ * Reuses all existing workflows — no section logic is duplicated here.
  * =============================================================================
  */
 
@@ -14,16 +16,20 @@ import { Page, BrowserContext } from '@playwright/test';
 import * as PatientFixtures from '../../fixtures/patient-data.fixture';
 import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
+import { createAttendingPhysicianData } from '../../fixtures/care-team-fixtures';
+import { createBenefitData } from '../../fixtures/benefit-fixtures';
 
 let sharedPage: Page;
 let sharedContext: BrowserContext;
 let pages: PageObjects;
 
-let storedPatientId: number;
-
 // Global fixture reference for easy access across all tests
 const hospiceFixture = PatientFixtures.PATIENT_FIXTURES.HOSPICE;
-test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture', () => {
+
+// Single date used across all sections — change here to shift everything
+const ADMIT_DATE = '02/01/2026';
+
+test.describe.serial('Admit Hospice Patient — E2E @workflow @admit', () => {
 
   test.beforeAll(async ({ browser }) => {
     sharedContext = await browser.newContext({
@@ -35,7 +41,6 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     sharedPage = await sharedContext.newPage();
     sharedPage.setDefaultTimeout(30000);
 
-    // Create page objects using the factory
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once for all tests
@@ -49,9 +54,8 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
     const credentials = CredentialManager.getCredentials(undefined, 'RN');
     await pages.login.login(credentials.username, credentials.password);
     await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
-    console.log('✅ Login successful - ready for tests');
+    console.log('✅ Login successful');
 
-    // Resolve the intercepted physician name (stored automatically in TestDataManager)
     await physicianNamePromise;
   });
 
@@ -62,334 +66,237 @@ test.describe.serial('Add Patient Workflow - Using Fixtures @workflow @fixture',
   });
 
   // ===========================================================================
-  // STEP 1: Navigate to Dashboard and Patient List
+  // STEP 01: Navigate to Patient module
   // ===========================================================================
-  test('Step 1: Navigate to Dashboard and Patient List', async () => {
-    // Ensure on dashboard
+  test('Step 01: Navigate to Patient List', async () => {
     const isDashboardVisible = await pages.dashboard.isDashboardDisplayed();
     if (!isDashboardVisible) {
       await pages.dashboard.goto();
       await sharedPage.waitForURL(/dashboard/, { timeout: 15000 });
     }
-    console.log('✅ On Dashboard');
 
-    // Wait for page to fully load and Rubik's cube button to be enabled
     await sharedPage.waitForLoadState('networkidle');
     await sharedPage.waitForTimeout(2000);
 
-    // Wait for Rubik's cube button to be enabled (not disabled)
-    const rubiksCubeButton = sharedPage.locator('[data-cy="btn-options-applications"]');
-    await rubiksCubeButton.waitFor({ state: 'visible', timeout: 10000 });
-
-    // Wait additional time for button to be enabled
-    await sharedPage.waitForTimeout(2000);
-
-    // Click Rubik's Cube to open module menu
-    // await pages.dashboard.clickRubiksCube();
-    // await sharedPage.waitForTimeout(1000);
-
-    // Navigate to Patient module
     await pages.dashboard.navigateToModule('Patient');
     await sharedPage.waitForTimeout(2000);
     console.log('✅ Navigated to Patient List');
   });
 
   // ===========================================================================
-  // EXAMPLE 1a: Add Hospice Patient
+  // STEP 02: Create hospice patient from fixture
   // ===========================================================================
-  test('Example 1: Add Hospice patient using fixture file data ', async () => {
+  test('Step 02: Create Hospice Patient', async () => {
     const result = await pages.patientWorkflow.addPatientFromFixture(
       hospiceFixture,
-      {
-        skipLogin: true, // Already logged in from beforeAll
-      }
+      { skipLogin: true }
     );
 
     expect(result.success).toBeTruthy();
-    expect(result.success).toBeTruthy();
-    console.log(result);
-    // expect(result.patientFirstName).toBe('James');
-    // expect(result.patientLastName).toBe('Anderson');
-    // expect(result.patientId).toBeDefined();
-
-    console.log(`✅ Created patient: ${result.patientFirstName} ${result.patientLastName}`);
-    console.log(`   Patient ID: ${result.patientId}`);
-
-  });
-    // ===========================================================================
-  // EXAMPLE 1b: Access Stored Patient ID from Fixture
-  // ===========================================================================
-  test('Example 2d: Verify Patient ID Stored in Fixture', async () => {
-    // Retrieve the patient ID that was stored in the fixture during Example 1
-     let storedPatientId = PatientFixtures.getPatientIdFromFixture(hospiceFixture);
-
-    // Verify patient ID was captured and stored
-    expect(storedPatientId).toBeDefined();
-    expect(storedPatientId).toBeGreaterThan(0);
-
-    console.log('✅ Patient ID successfully retrieved from fixture');
-    console.log(`   Stored Patient ID: ${storedPatientId}`);
-    console.log(`   Created At: ${hospiceFixture.runtimeData?.createdAt}`);
-    console.log(`   URL: ${hospiceFixture.runtimeData?.url}`);
+    console.log(`✅ Created patient: ${result.patientFirstName} ${result.patientLastName} (ID: ${result.patientId})`);
   });
 
   // ===========================================================================
-  // EXAMPLE 1c: Search Patient by ID and Verify
+  // STEP 03: Search and open patient chart
   // ===========================================================================
-  test('Example 1c: Search Patient by ID', async () => {
-    // Get patient ID from fixture
+  test('Step 03: Search and Open Patient Chart', async () => {
     const patientId = PatientFixtures.getPatientIdFromFixture(hospiceFixture);
-
-    // Verify patient ID exists
     expect(patientId).toBeDefined();
     expect(patientId).toBeGreaterThan(0);
 
-    // Ensure patientId is not undefined for TypeScript
-    if (!patientId) {
-      throw new Error('Patient ID is undefined');
-    }
+    if (!patientId) throw new Error('Patient ID is undefined');
 
-    console.log(`🔍 Searching for patient with ID: ${patientId}`);
-
-    // Search for patient by ID
+    console.log(`🔍 Searching for patient ID: ${patientId}`);
     await pages.patient.searchPatient(patientId.toString());
 
-    // Verify patient appears in search results
     const isPatientVisible = await pages.patient.verifyPatientInGrid(0);
     expect(isPatientVisible).toBeTruthy();
 
-    console.log('✅ Patient found in search results');
-    console.log(`   Patient ID searched: ${patientId}`);
-
-    // Get patient chart ID to verify it matches
-    const chartId = await pages.patient.getPatientChartId();
-    console.log(`   Patient chart ID from grid: ${chartId}`);
-
-    // Click on the patient to open patient details page
     await pages.patient.getPatientFromGrid(0);
     await sharedPage.waitForLoadState('networkidle');
     await sharedPage.waitForTimeout(2000);
 
-    // Verify we're on patient details page
     const currentUrl = sharedPage.url();
     expect(currentUrl).toContain('patient-details');
-    console.log('✅ Patient details page loaded successfully');
-    console.log(`   Current URL: ${currentUrl}`);
+    console.log('✅ Patient chart opened');
   });
 
- 
-
   // ===========================================================================
-  // EXAMPLE 2: Add Caller Information to Patient
+  // STEP 04: Fill Profile section (Caller, Referrer, Referring & Ordering Physician)
   // ===========================================================================
-  test('Example 2: Add Caller Information - From Fixture', async () => {
-    // Get caller information from fixture
+  test('Step 04a: Add Caller Information', async () => {
     const callerInfo = hospiceFixture.referralInfo?.caller;
-
-    // Add caller information using fixture data
-    const callerResult = await pages.patientWorkflow.addCallerInformation({
+    const result = await pages.patientWorkflow.addCallerInformation({
       referralType: callerInfo?.referralType || 'Call',
       relation: callerInfo?.relation || 'Physician',
-      // searchName: callerInfo?.searchName || 'cypresslast',
       searchName: callerInfo?.searchName,
     });
-
-    expect(callerResult.success).toBeTruthy();
-    console.log('✅ Caller information added successfully');
-    console.log(`   Using search name from fixture: ${callerInfo?.searchName}`);
+    expect(result.success).toBeTruthy();
+    console.log('✅ Caller information added');
   });
 
-  // ===========================================================================
-  // EXAMPLE 2a: Add Referrer Information
-  // ===========================================================================
-  test('Example 2a: Add Referrer Information - From Fixture', async () => {
-    // Get referrer information from fixture
+  test('Step 04b: Add Referrer Information', async () => {
     const referrerInfo = hospiceFixture.referralInfo?.referrer;
-
-    // Add referrer information using fixture data
-    const referrerResult = await pages.patientWorkflow.addReferrerInformation({
+    const result = await pages.patientWorkflow.addReferrerInformation({
       relation: referrerInfo?.relation,
       searchName: referrerInfo?.searchName,
       sameAsCaller: referrerInfo?.sameAsCaller ?? true,
     });
-
-    expect(referrerResult.success).toBeTruthy();
-    console.log('✅ Referrer information added successfully');
-    console.log(`   Same as Caller: ${referrerInfo?.sameAsCaller}`);
+    expect(result.success).toBeTruthy();
+    console.log('✅ Referrer information added');
   });
 
-  // ===========================================================================
-  // EXAMPLE 2b: Add Referring Physician Information
-  // ===========================================================================
-  test('Example 2b: Add Referring Physician - From Fixture', async () => {
-    // Get referring physician information from fixture
-    const referringPhysicianInfo = hospiceFixture.referralInfo?.referringPhysician;
-
-    // Add referring physician using fixture data
-    const referringPhysicianResult = await pages.patientWorkflow.addReferringPhysicianInformation(
-      'add',
-      {
-        searchName: referringPhysicianInfo?.searchName,
-        sameAsReferrer: referringPhysicianInfo?.sameAsReferrer,
-      }
-    );
-
-    expect(referringPhysicianResult.success).toBeTruthy();
-    console.log('✅ Referring physician information added successfully');
-    console.log(`   Same as Referrer: ${referringPhysicianInfo?.sameAsReferrer}`);
-  });
-
-  // ===========================================================================
-  // EXAMPLE 2c: Add Ordering Physician Information
-  // ===========================================================================
-  test('Example 2c: Add Ordering Physician - From Fixture', async () => {
-    // Get ordering physician information from fixture
-    const orderingPhysicianInfo = hospiceFixture.referralInfo?.orderingPhysician;
-
-    // Add ordering physician using fixture data
-    const orderingPhysicianResult = await pages.patientWorkflow.addOrderingPhysicianInformation('add', {
-      searchName: orderingPhysicianInfo?.searchName,
-      sameAsReferringPhysician: orderingPhysicianInfo?.sameAsReferringPhysician,
+  test('Step 04c: Add Referring Physician', async () => {
+    const info = hospiceFixture.referralInfo?.referringPhysician;
+    const result = await pages.patientWorkflow.addReferringPhysicianInformation('add', {
+      searchName: info?.searchName,
+      sameAsReferrer: info?.sameAsReferrer,
     });
-
-    expect(orderingPhysicianResult.success).toBeTruthy();
-    console.log('✅ Ordering physician information added successfully');
-    console.log(`   Same as Referring Physician: ${orderingPhysicianInfo?.sameAsReferringPhysician}`);
+    expect(result.success).toBeTruthy();
+    console.log('✅ Referring physician added');
   });
-   // ===========================================================================
-  // STEP 3: Navigate to Care Team and Add Care Team / attending physician / caregiver
-  // ===========================================================================
-  test('Step 3: Navigate to Care Team and Add Team', async () => {
-    console.log('🏥 Navigating to Care Team section...');
 
-    // Navigate to Care Team tab
+  test('Step 04d: Add Ordering Physician', async () => {
+    const info = hospiceFixture.referralInfo?.orderingPhysician;
+    const result = await pages.patientWorkflow.addOrderingPhysicianInformation('add', {
+      searchName: info?.searchName,
+      sameAsReferringPhysician: info?.sameAsReferringPhysician,
+    });
+    expect(result.success).toBeTruthy();
+    console.log('✅ Ordering physician added');
+  });
+
+  // ===========================================================================
+  // STEP 05: Add LOC
+  // ===========================================================================
+  test('Step 05: Add Routine Home Care LOC', async () => {
+    await pages.locWorkflow.addLOCOrder('Routine Home Care', {
+      careLocationType: 'Q5004',
+      startDate: ADMIT_DATE,
+    });
+    console.log('✅ Routine Home Care LOC added');
+  });
+
+  // ===========================================================================
+  // STEP 06: Add Diagnosis + Verify Profile checkmark
+  // ===========================================================================
+  test('Step 06a: Add Primary Diagnosis', async () => {
+    await pages.diagnosisWorkflow.fillDiagnosisDetails('add', {
+      primaryDiagnosis: { searchText: 'C801', optionIndex: 0 },
+    });
+    console.log('✅ Primary diagnosis added');
+  });
+
+  test('Step 06b: Verify Profile checkmark', async () => {
+    await pages.admitPatientWorkflow.verifySectionCheckmark('profile');
+  });
+
+  // ===========================================================================
+  // STEP 07: Fill Care Team section
+  // ===========================================================================
+  test('Step 07a: Add Care Team and Standard Roles', async () => {
     await pages.careTeamWorkflow.navigateToCareTeam();
-
-    // Select care team (uses fixture data or environment default)
     await pages.careTeamWorkflow.selectCareTeam();
-    console.log('✅ Care team selected');
-
-    // Add standard roles (Social Worker, Spiritual Advisor, RN, Medical Director)
     await pages.careTeamWorkflow.addStandardRoles();
-    console.log('✅ Standard care team roles added');
-
-    console.log('✅ Care Team setup completed successfully');
+    console.log('✅ Care team and standard roles added');
   });
 
-  // ===========================================================================
-  // STEP 3.a: Add Attending Physician
-  // ===========================================================================
-  test('Step 3.a: Add Attending Physician', async () => {
-    console.log('👨‍⚕️ Adding Attending Physician...');
-
-    // Add attending physician using fixture data
-    await pages.careTeamWorkflow.fillAttendingPhysician('add');
-
-    // Verify physician was added
-    const physicianCount = await pages.careTeamWorkflow.getAttendingPhysicianCount();
-    expect(physicianCount).toBeGreaterThan(0);
-
-    console.log('✅ Attending Physician added successfully');
-    console.log(`   Total physicians: ${physicianCount}`);
+  test('Step 07b: Add Attending Physician', async () => {
+    await pages.careTeamWorkflow.fillAttendingPhysician('add', [], 0, createAttendingPhysicianData({ startDate: ADMIT_DATE }));
+    const count = await pages.careTeamWorkflow.getAttendingPhysicianCount();
+    expect(count).toBeGreaterThan(0);
+    console.log('✅ Attending physician added');
   });
 
-  // ===========================================================================
-  // STEP 3.b: Add Caregiver
-  // ===========================================================================
-  test('Step 3.b: Add Caregiver', async () => {
-    console.log('👪 Adding Caregiver...');
-
-    // Add caregiver using fixture data
+  test('Step 07c: Add Caregiver', async () => {
     await pages.careTeamWorkflow.fillCaregiverDetails('add');
-
-    console.log('✅ Caregiver added successfully');
-  
+    console.log('✅ Caregiver added');
   });
-// ===========================================================================
-// STEP 4: Navigate to Benefits and Add Benefit
-// ===========================================================================  
 
-   test("Step 4: Navigate to Benefits and add benefit", async () => {
-      // Use the workflow to add benefit
-      // Data is read from BENEFIT_FORM_DATA in fixtures/benefit-fixtures.ts
-      await pages.benefitsWorkflow.fillBenefitDetails("add");
-  
-      console.log("Benefit added successfully");
+  test('Step 07d: Verify Care Team checkmark', async () => {
+    await pages.admitPatientWorkflow.verifySectionCheckmark('care-team');
+  });
+
+  // ===========================================================================
+  // STEP 08: Fill Benefits section
+  // ===========================================================================
+  test('Step 08a: Add Benefit', async () => {
+    await pages.benefitsWorkflow.fillBenefitDetails('add', [], 'Hospice', 'Primary', createBenefitData({ payerEffectiveDate: ADMIT_DATE, benefitPeriodStartDate: ADMIT_DATE }));
+    console.log('✅ Benefit added');
+  });
+
+  test('Step 08b: Verify Benefits checkmark', async () => {
+    await pages.admitPatientWorkflow.verifySectionCheckmark('benefits');
+  });
+
+  // ===========================================================================
+  // STEP 09: Fill Consents section
+  // ===========================================================================
+  test('Step 09a: Add Consents', async () => {
+    await pages.consentsWorkflow.fillConsents('yes');
+    console.log('✅ Consents completed');
+  });
+
+  test('Step 09b: Verify Consents checkmark', async () => {
+    await pages.admitPatientWorkflow.verifySectionCheckmark('consents');
+  });
+
+  // ===========================================================================
+  // STEP 10: Fill Certifications section
+  // ===========================================================================
+  test('Step 10a: Add Verbal Certification', async () => {
+    await pages.certificationWorkflow.fillCertificationDetails('add', 'Verbal', [], {
+      certType: 'Verbal',
+      certifyingObtainedOn: ADMIT_DATE,
+      attendingObtainedOn: ADMIT_DATE,
     });
 
-
-     // ===========================================================================
-      // STEP 5: Add or Edit Consents 
-      // ===========================================================================
-      test('Step 5: Navigate to Consents and Add/Edit Form', async () => {
-        // Use the consents workflow - it auto-detects add vs edit mode
-        await pages.consentsWorkflow.fillConsents('yes');
-
-        console.log('Consents workflow completed successfully');
-      });
-
-  // ===========================================================================
-  // STEP 6: Add Verbal Certification
-  // ===========================================================================
-  test('Step 6a: Add Verbal Certification', async () => {
-    await pages.certificationWorkflow.fillCertificationDetails('add', 'Verbal');
-
-    // Verify: form should be closed (save button gone)
     const saveVisible = await pages.certification.isSaveButtonVisible();
     expect(saveVisible).toBeFalsy();
 
-    // Verify: a Verbal certification record exists in the grid
     const verbalExists = await pages.certification.isVerbalCertificationVisible(0);
     expect(verbalExists).toBeTruthy();
-
-    console.log('Verbal certification added and verified in grid');
+    console.log('✅ Verbal certification added');
   });
 
-  // ===========================================================================
-  // STEP 6: Add Written Certification
-  // ===========================================================================
-  test('Step 6b: Add Written Certification', async () => {
+  test('Step 10b: Add Written Certification', async () => {
     await pages.certificationWorkflow.fillCertificationDetails('add', 'Written', [], {
       certType: 'Written',
-      certifyingSignedOn: '01/01/2026',
-      attendingSignedOn: '01/01/2026',
+      certifyingSignedOn: ADMIT_DATE,
+      attendingSignedOn: ADMIT_DATE,
     });
 
-    // Verify: form should be closed (save button gone)
     const saveVisible = await pages.certification.isSaveButtonVisible();
     expect(saveVisible).toBeFalsy();
 
-    // Verify: a Written certification record exists in the grid
     const writtenExists = await pages.certification.isWrittenCertificationVisible(0);
     expect(writtenExists).toBeTruthy();
-
-    console.log('Written certification added and verified in grid');
+    console.log('✅ Written certification added');
   });
 
-    // ===========================================================================
-    // STEP 7: Add Routine Home Care LOC with Q5004 care location
-    // ===========================================================================
-    test('Step 7a: Add Routine Home Care LOC (Q5004, 02/01/2026)', async () => {
-      await pages.locWorkflow.addLOCOrder('Routine Home Care', {
-        careLocationType: 'Q5004',
-        startDate: '02/01/2026',
-      });
-      console.log('Added Routine Home Care LOC with Q5004 care location');
-    });
+  test('Step 10c: Verify Certifications checkmark', async () => {
+    await pages.admitPatientWorkflow.verifySectionCheckmark('certifications');
+  });
 
-    // ===========================================================================
-      // STEP 7: Void existing LOC and create Respite Care replacement
-      // ===========================================================================
-      test('Step 7b: Void and create Respite Care (02/01/2026)', async () => {
-        await pages.locWorkflow.voidAndRecreateLOCOrder(
-          { voidReason: 'Switching to Respite Care' },
-          'Respite Care',
-          { startDate: '02/01/2026' }
-        );
-        console.log('Voided existing LOC and created Respite Care replacement');
-      
-      });
+  // ===========================================================================
+  // STEP 11: Verify all sections complete
+  // ===========================================================================
+  test('Step 11: Verify All 5 Sections Complete', async () => {
+    await pages.admitPatientWorkflow.verifyAllSectionsComplete();
+  });
 
+  // ===========================================================================
+  // STEP 12: Admit Patient
+  // ===========================================================================
+  test('Step 12: Admit Patient and Confirm Modal', async () => {
+    await pages.admitPatientWorkflow.admitPatient(ADMIT_DATE);
+  });
 
+  // ===========================================================================
+  // STEP 13: Verify admission success
+  // ===========================================================================
+  test('Step 13: Verify Admission Success', async () => {
+    await pages.admitPatientWorkflow.verifyAdmissionSuccess();
+  });
 
 });
