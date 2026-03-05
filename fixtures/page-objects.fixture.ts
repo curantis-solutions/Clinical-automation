@@ -27,6 +27,9 @@ import { ConsentsWorkflow } from '../workflows/consents.workflow';
 import { CertificationWorkflow } from '../workflows/certification.workflow';
 import { CareTeamWorkflow } from '../workflows/care-team.workflow';
 import { LOCWorkflow } from '../workflows/loc.workflow';
+import { DiagnosisPage } from '../pages/diagnosis.page';
+import { DiagnosisWorkflow } from '../workflows/diagnosis.workflow';
+import { AdmitPatientWorkflow } from '../workflows/admit-patient.workflow';
 
 /**
  * Collection of all page objects
@@ -44,6 +47,9 @@ export interface PageObjects {
   careTeamWorkflow: CareTeamWorkflow;
   loc: LOCPage;
   locWorkflow: LOCWorkflow;
+  diagnosis: DiagnosisPage;
+  diagnosisWorkflow: DiagnosisWorkflow;
+  admitPatientWorkflow: AdmitPatientWorkflow;
 }
 
 // Define fixture types
@@ -74,6 +80,9 @@ function createPageObjectsForPage(page: Page): PageObjects {
     careTeamWorkflow: new CareTeamWorkflow(page),
     loc: new LOCPage(page),
     locWorkflow: new LOCWorkflow(page),
+    diagnosis: new DiagnosisPage(page),
+    diagnosisWorkflow: new DiagnosisWorkflow(page),
+    admitPatientWorkflow: new AdmitPatientWorkflow(page),
   };
 }
 

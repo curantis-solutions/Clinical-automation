@@ -638,7 +638,7 @@ export class CareTeamPage extends BasePage {
   async selectCaregiverState(state: string): Promise<void> {
     await this.page.locator(this.selectors.stateDropdown).click();
     await this.page.waitForTimeout(1000);
-    await this.page.getByText(state, { exact: true }).click();
+    await this.page.locator('[data-cy*="input-filtered-options"]').getByText(state, { exact: true }).click();
     await this.page.waitForTimeout(500);
   }
 

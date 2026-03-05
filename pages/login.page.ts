@@ -7,7 +7,7 @@ export class LoginPage extends BasePage {
     // Specific selectors for Curantis login form
     usernameInput: 'input[placeholder="EMAIL"], input[type="email"], input[name="email"]',
     passwordInput: 'input[placeholder="PASSWORD"], input[type="password"], input[name="password"]',
-    loginButton: 'button:has-text("SIGN IN"), button:has-text("Sign In"), button[type="submit"]',
+  loginButton: 'button:has-text("SIGN IN"), button:has-text("Sign In"), button[type="submit"]',
     errorMessage: '.error-message, .alert-danger, [role="alert"], [data-testid="error-message"]',
     // Additional selectors
     rememberMe: 'input[type="checkbox"][name="remember"], #remember-me',
