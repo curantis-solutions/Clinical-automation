@@ -2,11 +2,12 @@ import { Page } from '@playwright/test';
 import { BasePage } from '../pages/base.page';
 import { CertificationType } from '../types/certification.types';
 import { DateHelper } from '../utils/date-helper';
+import { selectNgOption, selectNgOptionByIndex } from '../utils/form-helpers';
 
 /**
  * Certification Page Object — Ionic 8 (qa2)
  *
- * VERIFIED via MCP Playwright on qa2 (2026-03-12).
+ * VERIFIED via MCP Playwright on qa2 (2026-03-23).
  *
  * KEY CHANGES from Ionic 4 (qa1):
  * - Navigation: [data-cy="btn-nav-bar-item-certifications"] SAME
@@ -25,9 +26,9 @@ import { DateHelper } from '../utils/date-helper';
  * - Header columns: col-header-benefit-period, col-header-verbal-date, etc.
  * - Card: no card-certifications anymore — uses section containers instead
  *
- * FORM SELECTORS (MCP-verified 2026-03-12):
- * - Physician inputs are ion-input (need `[data-cy="..."] input` pattern)
- * - No ng-selects in cert form — physician search is custom ion-input + dropdown toggle
+ * FORM SELECTORS (MCP-verified 2026-03-23):
+ * - Benefit period is now ng-select: input-benefits-period-dates (Verbal) / input-benefit-period-dates (Written)
+ * - Physician inputs are now ng-selects: input-hospice-physician, input-attending-physician
  * - Save/Cancel: btn-save-certification-v2 / btn-cancel-certification-v2 (NOT btn-save/btn-cancel)
  * - Narrative: ion-textarea (NOT native textarea)
  */
@@ -93,24 +94,17 @@ export class CertificationPage extends BasePage {
     // === Form selectors (MCP-verified 2026-03-12) ===
     verbalRadio: '[data-cy="radio-certification-verbal"]',
     writtenRadio: '[data-cy="radio-certification-written"]',
-    hospicePhysicianInput: '[data-cy="input-hospice-physician"] input',
-    attendingPhysicianInput: '[data-cy="input-attending-physician"] input',
+    // Physician ng-selects (MCP-verified 2026-03-23 — now ng-select, not ion-input)
+    hospicePhysicianNgSelect: '[data-cy="input-hospice-physician"]',
+    attendingPhysicianNgSelect: '[data-cy="input-attending-physician"]',
     narrativeStatement: '[data-cy="textarea-brief-narrative-statement"] textarea',
     narrativeOnFileCheckbox: '[data-cy="checkbox-narrative-on-file"]',
     signatureReceivedCheckbox: '[data-cy="checkbox-signature-received"]',
 
-    // === Benefit Period ===
-    benefitPeriodDropdownVerbal: '[data-cy="btn-show-benefits-periods"]',
-    benefitPeriodDropdownWritten1: '[data-cy="btn-show-benefits-periods"]',
-    benefitPeriodDropdownWritten2: '[data-cy="btn-show-benefits-periods-2"]',
-    benefitPeriodOptionVerbal: (index: number) => `[data-cy="btn-set-benefits-period${index}"]`,
-    benefitPeriodOptionWritten: (index: number) => `[data-cy="btn-set-benefits-period-${index}"]`,
-
-    // === Physician Toggles/Options ===
-    hospicePhysicianToggleVerbal: '[data-cy="btn-show-certifying-physician-options-true"]',
-    hospicePhysicianOptionVerbal: (index: number) => `[data-cy="btn-show-certifying-physician-options-${index}"]`,
-    hospicePhysicianToggleWritten: '[data-cy="btn-show-certifying-true"]',
-    hospicePhysicianOptionWritten: (index: number) => `[data-cy="btn-set-physician-${index}"]`,
+    // === Benefit Period (ng-select dropdowns — MCP-verified 2026-03-23) ===
+    // NOTE: Verbal uses plural "benefits", Written uses singular "benefit"
+    benefitPeriodNgSelectVerbal: '[data-cy="input-benefits-period-dates"]',
+    benefitPeriodNgSelectWritten: '[data-cy="input-benefit-period-dates"]',
 
     // === Date Pickers ===
     certifyingObtainedOnPicker: '[data-cy="date-obtained-on-picker"]',
@@ -121,12 +115,6 @@ export class CertificationPage extends BasePage {
     // === Received By (Verbal Only) ===
     certifyingReceivedByInput: '[data-cy="input-recieved-by"] input',
     attendingReceivedByInput: '[data-cy="input-received-by"] input',
-
-    // === Attending Physician Toggles ===
-    attendingPhysicianToggleVerbal: '[data-cy="btn-show-physician-options-true"]',
-    attendingPhysicianOptionVerbal: (index: number) => `[data-cy="btn-attending-physician-options${index}"]`,
-    attendingPhysicianToggleWritten: '[data-cy="btn-show-physician-options"]',
-    attendingPhysicianOptionWritten: (index: number) => `[data-cy="btn-set-attending-physician-${index}"]`,
 
     // === Edit Mode ===
     reasonForChangeInput: '[data-cy="textarea-reason-for-change"] textarea',
@@ -213,21 +201,13 @@ export class CertificationPage extends BasePage {
   // ============================================
 
   async selectBenefitPeriod(index: number, certType: CertificationType): Promise<void> {
-    if (certType === 'Verbal') {
-      await this.page.locator(this.selectors.benefitPeriodDropdownVerbal).click();
-      await this.page.waitForTimeout(500);
-      await this.page.locator(this.selectors.benefitPeriodOptionVerbal(index)).click();
-    } else {
-      const dropdown2 = this.page.locator(this.selectors.benefitPeriodDropdownWritten2);
-      const dropdown1 = this.page.locator(this.selectors.benefitPeriodDropdownWritten1);
-      if (await dropdown2.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await dropdown2.click();
-      } else {
-        await dropdown1.click();
-      }
-      await this.page.waitForTimeout(500);
-      await this.page.locator(this.selectors.benefitPeriodOptionWritten(index)).click();
-    }
+    const selector = certType === 'Verbal'
+      ? this.selectors.benefitPeriodNgSelectVerbal
+      : this.selectors.benefitPeriodNgSelectWritten;
+
+    // ng-select: use 0-based index; benefit period "1" is index 0
+    const ngIndex = index - 1;
+    await selectNgOptionByIndex(this.page, selector, ngIndex >= 0 ? ngIndex : 0);
     await this.page.waitForTimeout(1000);
     console.log(`Selected benefit period index: ${index} (${certType})`);
   }
@@ -237,25 +217,24 @@ export class CertificationPage extends BasePage {
   // ============================================
 
   private async searchAndSelectPhysician(
-    inputSelector: string,
-    optionSelector: string,
+    ngSelectSelector: string,
     name: string,
     optionIndex: number
   ): Promise<void> {
-    const input = this.page.locator(inputSelector);
-    await input.waitFor({ state: 'visible', timeout: 10000 });
-    await this.page.waitForTimeout(1000);
+    const ngSelect = this.page.locator(ngSelectSelector);
+    await ngSelect.waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.waitForTimeout(500);
 
-    let retries = 0;
-    while (retries < 5 && !(await input.isEnabled())) {
-      await this.page.waitForTimeout(1000);
-      retries++;
-    }
+    // Click to open ng-select, then type into the input
+    await ngSelect.click({ force: true });
+    await this.page.waitForTimeout(500);
 
-    await input.clear();
-    await input.pressSequentially(name, { delay: 200 });
+    const input = ngSelect.locator('input[type="text"]');
+    await input.fill(name);
     await this.page.waitForTimeout(1500);
-    await this.page.locator(optionSelector).click();
+
+    // Select from dropdown panel
+    await this.page.locator('ng-dropdown-panel .ng-option').nth(optionIndex).click({ force: true });
     await this.page.waitForTimeout(1000);
   }
 
@@ -289,9 +268,7 @@ export class CertificationPage extends BasePage {
 
   async fillHospicePhysicianVerbal(name: string, optionIndex: number = 0): Promise<void> {
     await this.searchAndSelectPhysician(
-      this.selectors.hospicePhysicianInput,
-      this.selectors.hospicePhysicianOptionVerbal(optionIndex),
-      name, optionIndex
+      this.selectors.hospicePhysicianNgSelect, name, optionIndex
     );
     console.log(`Set hospice physician (Verbal): ${name}`);
   }
@@ -313,9 +290,7 @@ export class CertificationPage extends BasePage {
 
   async fillAttendingPhysicianVerbal(name: string, optionIndex: number = 0): Promise<void> {
     await this.searchAndSelectPhysician(
-      this.selectors.attendingPhysicianInput,
-      this.selectors.attendingPhysicianOptionVerbal(optionIndex),
-      name, optionIndex
+      this.selectors.attendingPhysicianNgSelect, name, optionIndex
     );
     console.log(`Set attending physician (Verbal): ${name}`);
   }
@@ -341,9 +316,7 @@ export class CertificationPage extends BasePage {
 
   async fillHospicePhysicianWritten(name: string, optionIndex: number = 0): Promise<void> {
     await this.searchAndSelectPhysician(
-      this.selectors.hospicePhysicianInput,
-      this.selectors.hospicePhysicianOptionWritten(optionIndex),
-      name, optionIndex
+      this.selectors.hospicePhysicianNgSelect, name, optionIndex
     );
     console.log(`Set hospice physician (Written): ${name}`);
   }
@@ -357,9 +330,7 @@ export class CertificationPage extends BasePage {
 
   async fillAttendingPhysicianWritten(name: string, optionIndex: number = 0): Promise<void> {
     await this.searchAndSelectPhysician(
-      this.selectors.attendingPhysicianInput,
-      this.selectors.attendingPhysicianOptionWritten(optionIndex),
-      name, optionIndex
+      this.selectors.attendingPhysicianNgSelect, name, optionIndex
     );
     console.log(`Set attending physician (Written): ${name}`);
   }

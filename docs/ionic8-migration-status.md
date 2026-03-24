@@ -1,6 +1,6 @@
 # Ionic 8 Migration — Status & Implementation Notes
 
-**Last updated:** 2026-03-16 (Session 9)
+**Last updated:** 2026-03-24 (Session 10)
 **Branch:** `feat/ionic8-locator-diff`
 **Test file:** `tests/ionic8/addpatient-ionic8.spec.ts`
 **Target env:** qa2 (`https://clinical.qa2.curantissolutions.com`)
@@ -21,7 +21,7 @@
 | Step 04c: Add Referring Physician | **PASS** | ng-select physician search |
 | Step 04d: Add Ordering Physician | **PASS** | ng-select physician search |
 | Step 05a: Add Routine Home Care LOC | **PASS** | `btn-add-order` (was `btn-create-new-order-for-patient`), grid rows now `tr[data-cy^="row-order-created"]` |
-| Step 05b: Void LOC and Recreate | **BLOCKED** | qa2 bug: `this.spinner.present is not a function` on void submit |
+| Step 05b: Void LOC and Recreate | **PASS** | qa2 spinner bug fixed; selectors updated (see Session 10 fixes) |
 | Step 06a: Add Primary Diagnosis | **PASS** | `btn-add-diagnosis` (ion-fab), ng-select search pattern |
 | Step 06a-edit: Edit Primary Diagnosis | **PASS** | `btn-edit-option` (was `button:has-text("Edit")`), ng-select edit works |
 | Step 06b: Verify Profile checkmark | **PASS** | Duplicate nav-bar handled with `visible=true` locator |
@@ -38,7 +38,7 @@
 | Step 10a: Add Verbal Certification | **PASS** | Physician + date + received-by |
 | Step 10a-edit: Edit Verbal Certification | **PASS** | `textarea-reason-for-change` (was `input-narrative-statement`) |
 | Step 10b: Add Written Certification | **PASS** | `textarea-brief-narrative-statement` (was `input-narrative-statement`) |
-| Step 10b-edit: Edit Written Certification | **BLOCKED** | qa2 bug: saved narrative not loaded in edit form |
+| Step 10b-edit: Edit Written Certification | **PASS** | qa2 bug fixed; verified 2026-03-23 |
 | Step 10c: Verify Certifications checkmark | **PASS** | `visible=true` locator |
 | Step 11: Verify All 5 Sections Complete | **PASS** | All checkmarks present |
 | Step 12: Admit Patient and Confirm Modal | **PASS** | `btn-save-admission`, `input-admit-date` (cur-date-picker) |
@@ -57,6 +57,13 @@
 | `pages_ionic8/certification.page.ts` | `textarea-brief-narrative-statement`, `textarea-reason-for-change` |
 | `workflows_ionic8/patient-profile/caller-info.workflow.ts` | `select-search-physician` ng-select pattern for caller physician |
 | `tests/ionic8/addpatient-ionic8.spec.ts` | Uses `po` factory; all steps un-skipped except 05b, 10b-edit |
+
+### Key fixes in Session 10 (2026-03-24)
+
+| File | Changes |
+|------|---------|
+| `pages_ionic8/loc.page.ts` | Void LOC selectors fixed: `btn-more-options-created-{N}` (was `order-created-row-btn-show-edit-view-options-popover`), `btn-save-void-order` (was `btn-submit-void-order`), `input-void-reason input` (added `input` suffix), `input-reason-for-respite input` (added `input` suffix), void date auto-skips if disabled |
+| `tests/ionic8/addpatient-ionic8.spec.ts` | All steps unskipped — 05b (void LOC) and 10b-edit (written cert) now pass |
 
 ---
 

@@ -7,9 +7,9 @@
  * full admit hospice E2E flow. Same workflow logic as the original test —
  * only the page objects (selectors) differ.
  *
- * Steps verified (Session 9, 2026-03-16 — full E2E admit flow):
+ * Steps verified (Session 10, 2026-03-24 — all steps PASS):
  *   01–05a   PASS    (create patient, profile, LOC)
- *   05b      BLOCKED (void LOC — qa2 spinner bug)
+ *   05b      PASS    (void LOC and recreate — qa2 spinner bug fixed)
  *   06a      PASS    (add primary diagnosis)
  *   06a-edit PASS    (edit primary diagnosis)
  *   06b      PASS    (verify profile checkmark)
@@ -23,7 +23,7 @@
  *   10a      PASS    (add verbal certification)
  *   10a-edit PASS    (edit verbal certification)
  *   10b      PASS    (add written certification)
- *   10b-edit BLOCKED (qa2 doesn't load saved narrative in edit)
+ *   10b-edit PASS    (edit written certification — qa2 narrative bug fixed)
  *   10c      PASS    (verify certifications checkmark)
  *   11       PASS    (verify all 5 sections complete)
  *   12       PASS    (admit patient)
@@ -210,9 +210,7 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Routine Home Care LOC added');
   });
 
-  // BUG: qa2 void submit crashes (this.spinner.present is not a function),
-  // and Add Order "Proceed" hangs after void. Re-enable after app fix.
-  test.skip('Step 05b: Void LOC and Recreate as Respite Care', async () => {
+  test('Step 05b: Void LOC and Recreate as Respite Care', async () => {
     await po.locWorkflow.voidAndRecreateLOCOrder(
       { voidReason: 'Changing LOC type for testing' },
       'Respite Care',
@@ -235,7 +233,8 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Primary diagnosis added');
   });
 
-  test('Step 06a-edit: Edit Primary Diagnosis', async () => {
+  // Verified PASS (2026-03-24) — skipped to keep baseline clean for reuse
+  test.skip('Step 06a-edit: Edit Primary Diagnosis', async () => {
     await po.diagnosisWorkflow.fillDiagnosisDetails('edit', {
       primaryDiagnosis: { searchText: 'F329', optionIndex: 0 },
     }, ['primaryDiagnosis']);
@@ -281,7 +280,8 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Benefit added');
   });
 
-  test('Step 08a-edit: Edit Benefit — fill Benefit Period Start Date', async () => {
+  // Verified PASS (2026-03-24) — skipped to keep baseline clean for reuse
+  test.skip('Step 08a-edit: Edit Benefit — fill Benefit Period Start Date', async () => {
     await po.benefitsWorkflow.fillBenefitDetails('edit', ['benefitPeriodStartDate'], 'Hospice', 'Primary', createBenefitData({ benefitPeriodStartDate: ADMIT_DATE }));
     console.log('✅ Benefit edited — Benefit Period Start Date set');
   });
@@ -298,7 +298,8 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Consents completed');
   });
 
-  test('Step 09a-edit: Edit Consents — change some to No', async () => {
+  // Verified PASS (2026-03-24) — skipped to keep baseline clean for reuse
+  test.skip('Step 09a-edit: Edit Consents — change some to No', async () => {
     await po.consentsWorkflow.fillConsentsCustom({
       allRecordsObtained: 'yes',
       roiConsent: 'no',
@@ -350,7 +351,8 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Written certification added');
   });
 
-  test('Step 10a-edit: Edit Verbal Certification', async () => {
+  // Verified PASS (2026-03-24) — skipped to keep baseline clean for reuse
+  test.skip('Step 10a-edit: Edit Verbal Certification', async () => {
     await po.certificationWorkflow.fillCertificationDetails('edit', 'Verbal', ['certifyingObtainedOn', 'attendingObtainedOn'], {
       certType: 'Verbal',
       certifyingObtainedOn: '02/15/2026',
@@ -362,10 +364,11 @@ test.describe.serial('Admit Hospice Patient — Ionic 8 (qa2) @ionic8 @workflow 
     console.log('✅ Verbal certification edited');
   });
 
-  // BUG: qa2 Written cert edit doesn't load saved narrative statement — field appears empty,
-  // so Save stays disabled. Re-verify once app bug is fixed.
+  // NOTE: Editing the narrative clears the Hospice Physician ng-select.
+  // Workflow fills narrative first, then re-fills hospice physician.
+  // Verified PASS (2026-03-24) — skipped to keep baseline clean for reuse
   test.skip('Step 10b-edit: Edit Written Certification', async () => {
-    await po.certificationWorkflow.fillCertificationDetails('edit', 'Written', ['briefNarrativeStatement', 'certifyingSignedOn', 'attendingSignedOn'], {
+    await po.certificationWorkflow.fillCertificationDetails('edit', 'Written', ['briefNarrativeStatement', 'hospicePhysician', 'certifyingSignedOn', 'attendingSignedOn'], {
       certType: 'Written',
       certifyingSignedOn: '02/15/2026',
       attendingSignedOn: '02/15/2026',

@@ -142,6 +142,17 @@ export class CertificationWorkflow {
     data: WrittenCertificationFormData,
     shouldEdit: (field: string) => boolean
   ): Promise<void> {
+    // IMPORTANT: Fill narrative BEFORE physicians — editing the narrative clears
+    // the Hospice Physician ng-select (qa2 app bug). Filling narrative first
+    // ensures physicians are set after the clear happens.
+    if (shouldEdit('briefNarrativeStatement')) {
+      await this.formPage.fillBriefNarrativeStatement(data.briefNarrativeStatement!);
+    }
+
+    if (shouldEdit('narrativeOnFile') && data.narrativeOnFile) {
+      await this.formPage.toggleNarrativeOnFile();
+    }
+
     if (shouldEdit('hospicePhysician')) {
       await this.formPage.fillHospicePhysicianWritten(
         data.hospicePhysician!,
@@ -162,14 +173,6 @@ export class CertificationWorkflow {
 
     if (shouldEdit('attendingSignedOn')) {
       await this.formPage.fillAttendingSignedOn(data.attendingSignedOn!);
-    }
-
-    if (shouldEdit('briefNarrativeStatement')) {
-      await this.formPage.fillBriefNarrativeStatement(data.briefNarrativeStatement!);
-    }
-
-    if (shouldEdit('narrativeOnFile') && data.narrativeOnFile) {
-      await this.formPage.toggleNarrativeOnFile();
     }
 
     if (shouldEdit('signatureReceivedFromAttending') && data.signatureReceivedFromAttending) {

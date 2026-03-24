@@ -5,12 +5,12 @@ import { DateHelper } from '../utils/date-helper';
 /**
  * Level of Care (LOC) Page Object — Ionic 8 (qa2)
  *
- * VERIFIED via MCP Playwright on qa2 (2026-03-05).
+ * VERIFIED via MCP Playwright on qa2 (2026-03-24).
  *
  * KEY CHANGES from Ionic 4 (qa1):
- * - Order rows: ion-row[data-cy="order"] WORKS (was broken with `ion-row.order-row`)
- * - Order row cells: value-order-created-row-{field} data-cy pattern (NEW)
- * - Order type dropdown: select-order-type-dropdown SAME (inside select-order-type component)
+ * - Order rows: tr[data-cy^="row-order-created"] (was ion-row.order-row / ion-row[data-cy="order"])
+ * - Order row cells: cell-{field}-{N} data-cy pattern (e.g. cell-type-0, cell-name-description-0)
+ * - Order type dropdown: select-order-type-dropdown SAME
  * - LOC form selectors: ALL SAME (select-level-of-care, select-care-location-type, etc.)
  * - Start date: cur-date-picker[data-cy="date-order-start-date"] SAME
  * - Provider notes: voice-ion-textarea[data-cy="input-provider-notes"] (was textarea)
@@ -18,18 +18,19 @@ import { DateHelper } from '../utils/date-helper';
  * - Submit/Cancel: btn-submit-order / btn-cancel-order SAME
  * - Hide signed orders: ion-toggle[data-cy="toggle-hide-signed-orders"] (was checkbox)
  * - Hide discontinued: ion-toggle[data-cy="toggle-hide-discontinued-canceled-rejected-orders"] (NEW)
- * - Void modal: ALL NEW data-cy selectors (header-void-order, input-void-date, input-void-reason, etc.)
- * - Void date: cur-date-picker[data-cy="input-void-date"] (was .cancel-modal-container cur-date-picker input)
- * - Void submit/cancel: btn-submit-void-order / btn-cancel-void-order (was .cancel-footer button)
+ * - Add Order button: btn-add-order (was btn-create-new-order-for-patient)
+ * - Options popover: btn-more-options-created-{N} (was order-created-row-btn-show-edit-view-options-popover)
+ * - Void menu item: btn-void-loc (ion-item in popover) SAME
+ * - Void modal: header-void-order, form-void-order, footer-void-order (NEW)
+ * - Void date: input-void-date — disabled/auto-filled with today's date
+ * - Void reason: input-void-reason (ion-input, target inner input)
+ * - Void save/cancel: btn-save-void-order / btn-cancel-void-order (was btn-submit-void-order)
+ * - Void confirm: ion-alert with "Yes"/"No" buttons SAME
+ * - Respite reason: input-reason-for-respite (ion-input, target inner input)
  * - Add Order modal: content-add-order-modal, form-add-order, footer-add-order-modal (NEW)
  * - LOC grid content: content-level-of-care, panel-level-of-care-history (NEW)
- * - Pagination: container-pagination, btn-first-page, btn-prev-page, etc. (NEW)
- * - Order Entry button: btn-open-order-entry-page (class="orderEntryBtn") SAME
+ * - Order Entry button: btn-open-order-entry-page SAME
  * - Exit button: btn-exit-order-entry-page SAME
- * - Add Order button: btn-add-order (was btn-create-new-order-for-patient)
- * - Options popover: order-created-row-btn-show-edit-view-options-popover SAME
- * - Void menu item: btn-void-loc SAME
- * - Confirm void dialog: ion-alert with "Yes"/"No" buttons SAME
  */
 export class LOCPage extends BasePage {
   private readonly selectors = {
@@ -63,7 +64,7 @@ export class LOCPage extends BasePage {
     // =============================================
 
     // Respite Care
-    reasonForRespiteInput: '[data-cy="input-reason-for-respite"]',
+    reasonForRespiteInput: '[data-cy="input-reason-for-respite"] input',
 
     // General In-Patient (GIP) — checkboxes by kebab-case reason
     gipCheckbox: (reason: string) => `[data-cy="checkbox-${this.toKebabCase(reason)}"]`,
@@ -89,11 +90,11 @@ export class LOCPage extends BasePage {
     // =============================================
     // Void Order
     // =============================================
-    orderOptionsBtn: '[data-cy="order-created-row-btn-show-edit-view-options-popover"]',
+    orderOptionsBtn: (index: number) => `[data-cy="btn-more-options-created-${index}"]`,
     voidOrderMenuItem: '[data-cy="btn-void-loc"]',
     voidDatePicker: '[data-cy="input-void-date"] input',
-    voidReasonInput: '[data-cy="input-void-reason"]',
-    voidSubmitBtn: '[data-cy="btn-submit-void-order"]',
+    voidReasonInput: '[data-cy="input-void-reason"] input',
+    voidSubmitBtn: '[data-cy="btn-save-void-order"]',
     voidCancelBtn: '[data-cy="btn-cancel-void-order"]',
     confirmVoidBtn: 'ion-alert button:has-text("Yes")',
 
@@ -335,9 +336,9 @@ export class LOCPage extends BasePage {
   // ============================================
 
   async openVoidOrder(orderIndex: number = 0): Promise<void> {
-    const optionsBtn = this.page.locator(this.selectors.orderRows).nth(orderIndex).locator(this.selectors.orderOptionsBtn);
+    const optionsBtn = this.page.locator(this.selectors.orderOptionsBtn(orderIndex));
     await optionsBtn.click();
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(1000);
     await this.page.locator(this.selectors.voidOrderMenuItem).click();
     await this.page.waitForTimeout(2000);
     console.log(`Opened Void Order dialog for order index: ${orderIndex}`);
@@ -345,6 +346,11 @@ export class LOCPage extends BasePage {
 
   async fillVoidDate(date: string): Promise<void> {
     const input = this.page.locator(this.selectors.voidDatePicker);
+    const isDisabled = await input.isDisabled();
+    if (isDisabled) {
+      console.log('Void date is disabled (auto-filled) — skipping');
+      return;
+    }
     await input.click({ clickCount: 3, force: true });
     await input.fill(date);
     await this.page.waitForTimeout(500);
@@ -356,18 +362,19 @@ export class LOCPage extends BasePage {
     await input.waitFor({ state: 'visible', timeout: 10000 });
     await input.click();
     await input.fill(reason);
+    await this.page.waitForTimeout(500);
     console.log(`Filled void reason: ${reason}`);
   }
 
   async submitVoid(): Promise<void> {
-    await this.page.locator(this.selectors.voidSubmitBtn).click();
-    await this.page.waitForTimeout(2000);
+    await this.page.locator(this.selectors.voidSubmitBtn).click({ force: true });
+    await this.page.waitForTimeout(3000);
 
     // Handle confirmation dialog if it appears
     const confirmBtn = this.page.locator(this.selectors.confirmVoidBtn);
-    if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await confirmBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await confirmBtn.click();
-      await this.page.waitForTimeout(2000);
+      await this.page.waitForTimeout(3000);
     }
 
     console.log('Void order submitted');
