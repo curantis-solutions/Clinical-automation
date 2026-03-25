@@ -37,6 +37,8 @@ import { ClaimsPage } from '../pages/billing/claims.page';
 import { BatchManagementPage } from '../pages/billing/batch-management.page';
 import { AccountsReceivablePage } from '../pages/billing/accounts-receivable.page';
 import { BillingWorkflow } from '../workflows/billing.workflow';
+import { FacilitiesPage } from '../pages/facilities.page';
+import { FacilitiesWorkflow } from '../workflows/facilities.workflow';
 
 /**
  * Collection of all page objects
@@ -64,6 +66,8 @@ export interface PageObjects {
   batchManagement: BatchManagementPage;
   accountsReceivable: AccountsReceivablePage;
   billingWorkflow: BillingWorkflow;
+  facilities: FacilitiesPage;
+  facilitiesWorkflow: FacilitiesWorkflow;
 }
 
 // Define fixture types
@@ -104,6 +108,8 @@ function createPageObjectsForPage(page: Page): PageObjects {
     batchManagement: new BatchManagementPage(page),
     accountsReceivable: new AccountsReceivablePage(page),
     billingWorkflow: new BillingWorkflow(page),
+    facilities: new FacilitiesPage(page),
+    facilitiesWorkflow: new FacilitiesWorkflow(page),
   };
 }
 

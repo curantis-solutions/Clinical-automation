@@ -3,7 +3,20 @@
     "allow": [
       "Read(//c/Users/Sri/Claude-QA-Automation/clinical-cypress-testing/cypress/support/pageObjects/**)",
       "mcp__playwright-mcp__browser_type",
-      "mcp__playwright-mcp__browser_click"
+      "mcp__playwright-mcp__browser_click",
+      "mcp__playwright-mcp__browser_navigate",
+      "mcp__playwright-mcp__browser_snapshot",
+      "mcp__playwright-mcp__browser_take_screenshot",
+      "mcp__playwright-mcp__browser_wait_for",
+      "mcp__playwright-mcp__browser_fill_form",
+      "mcp__playwright-mcp__browser_press_key",
+      "mcp__playwright-mcp__browser_select_option",
+      "mcp__claude_ai_Atlassian__getJiraIssue",
+      "mcp__claude_ai_Atlassian__searchJiraIssuesUsingJql",
+      "mcp__claude_ai_Atlassian__addCommentToJiraIssue",
+      "mcp__claude_ai_Atlassian__editJiraIssue",
+      "mcp__claude_ai_Atlassian__searchAtlassian",
+      "mcp__playwright-mcp__browser_evaluate"
     ],
     "deny": [],
     "ask": []
