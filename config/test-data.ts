@@ -17,6 +17,10 @@ export interface TenantTestData {
   // Facility
   facilitySNF?: string;        // Skilled Nursing Facility (optional)
   facilityALF?: string;        // Assisted Living Facility (optional)
+  facilityPNF?: string;        // Place Not Specified Nursing Facility (optional)
+
+  // Patient
+  ordersPatientId?: string;    // Patient MRN used across all order test suites
 
   // Additional data
   receivedBy?: string;         // Name for certifications
@@ -42,6 +46,8 @@ export const testData: Record<string, EnvironmentTestData> = {
       facilitySNF: 'papa pig nurse care',
       facilityALF: 'Allen Assisted Facility',
       receivedBy: 'MDcypress cypresslast',
+      facilityPNF: 'Automation Facility',
+      ordersPatientId: '214101',
     },
 
     // Integrum tenant in QA

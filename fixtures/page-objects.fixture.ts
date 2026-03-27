@@ -30,6 +30,9 @@ import { LOCWorkflow } from '../workflows/loc.workflow';
 import { DiagnosisPage } from '../pages/diagnosis.page';
 import { DiagnosisWorkflow } from '../workflows/diagnosis.workflow';
 import { AdmitPatientWorkflow } from '../workflows/admit-patient.workflow';
+import { OrderEntryPage } from '../pages/order-entry.page';
+import { ProviderPanelPage } from '../pages/provider-panel.page';
+import { CarePlanPage } from '../pages/care-plan.page';
 
 /**
  * Collection of all page objects
@@ -50,6 +53,9 @@ export interface PageObjects {
   diagnosis: DiagnosisPage;
   diagnosisWorkflow: DiagnosisWorkflow;
   admitPatientWorkflow: AdmitPatientWorkflow;
+  orderEntry: OrderEntryPage;
+  providerPanel: ProviderPanelPage;
+  carePlan: CarePlanPage;
 }
 
 // Define fixture types
@@ -83,6 +89,9 @@ function createPageObjectsForPage(page: Page): PageObjects {
     diagnosis: new DiagnosisPage(page),
     diagnosisWorkflow: new DiagnosisWorkflow(page),
     admitPatientWorkflow: new AdmitPatientWorkflow(page),
+    orderEntry: new OrderEntryPage(page),
+    providerPanel: new ProviderPanelPage(page),
+    carePlan: new CarePlanPage(page),
   };
 }
 
