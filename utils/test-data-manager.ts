@@ -1,7 +1,12 @@
 import { Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
 import { testData, TenantTestData, tenantExists, getAvailableTenants } from '../config/test-data';
 import { CredentialManager } from './credential-manager';
 import { ApiClient } from './api-client';
+
+/** Path to shared runtime test data (persists between spec files) */
+const RUNTIME_DATA_PATH = path.resolve(__dirname, '../test-data/current-test-data.json');
 
 /**
  * Test Data Manager
@@ -125,6 +130,56 @@ export class TestDataManager {
    */
   static getFacilityALF(): string | undefined {
     return this.getData().facilityALF;
+  }
+  static getFacilityPNF(): string | undefined {
+      return this.getData().facilityPNF;
+    }
+
+  /**
+   * Get the patient MRN used across all order test suites.
+   * Priority: 1) Runtime file (set by addpatient-with-fixtures), 2) Config fallback
+   * @returns Patient ID/MRN string
+   */
+  static getOrdersPatientId(): string {
+    // Try runtime file first (written by patient admission test)
+    try {
+      if (fs.existsSync(RUNTIME_DATA_PATH)) {
+        const data = JSON.parse(fs.readFileSync(RUNTIME_DATA_PATH, 'utf-8'));
+        if (data?.ordersPatientId) {
+          return String(data.ordersPatientId);
+        }
+      }
+    } catch { /* fall through to config */ }
+
+    // Fallback to static config
+    const id = this.getData().ordersPatientId;
+    if (!id) {
+      throw new Error(
+        'ordersPatientId not configured. Run addpatient-with-fixtures first, ' +
+        'or set ordersPatientId in config/test-data.ts'
+      );
+    }
+    return id;
+  }
+
+  /**
+   * Save the patient MRN to the shared runtime file so all order test suites can use it.
+   * Called by addpatient-with-fixtures after patient admission.
+   * @param patientId - The admitted patient's MRN/ID
+   */
+  static setOrdersPatientId(patientId: string | number): void {
+    let data: Record<string, any> = {};
+    try {
+      if (fs.existsSync(RUNTIME_DATA_PATH)) {
+        data = JSON.parse(fs.readFileSync(RUNTIME_DATA_PATH, 'utf-8'));
+      }
+    } catch { /* start fresh */ }
+
+    data.ordersPatientId = String(patientId);
+    data.ordersPatientIdUpdatedAt = new Date().toISOString();
+
+    fs.writeFileSync(RUNTIME_DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    console.log(`✅ Saved ordersPatientId: ${patientId} to ${RUNTIME_DATA_PATH}`);
   }
 
   /**

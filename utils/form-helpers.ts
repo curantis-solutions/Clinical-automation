@@ -113,6 +113,79 @@ export async function selectDateFromPicker(page: Page, dateString: string): Prom
 }
 
 /**
+ * Select option from ng-select dropdown identified by its nearby label text.
+ * Useful when ng-select lacks a data-cy attribute but has a visible label.
+ *
+ * DOM pattern (from ARIA tree):
+ *   Container > LabelWrapper(contains labelText) + ng-select(listbox > combobox)
+ *
+ * Handles both readonly comboboxes (click-only selection) and editable ones (type to filter).
+ *
+ * @param page - Playwright Page instance
+ * @param labelText - Visible label text near the ng-select (e.g., "Visit(s)", "Frequency")
+ * @param optionText - Text of the option to select from the dropdown
+ */
+export async function selectNgOptionByLabel(page: Page, labelText: string, optionText: string): Promise<void> {
+  // Find the combobox input within the nearest ancestor container that also contains the label text
+  const combobox = page.locator(
+    `xpath=//*[text()[normalize-space()="${labelText}"]]/ancestor::*[.//input[@role="combobox"]][1]//input[@role="combobox"]`
+  ).first();
+
+  await combobox.scrollIntoViewIfNeeded();
+  await combobox.click({ force: true });
+  await page.waitForTimeout(1000);
+
+  // Check if combobox is readonly (common for ng-select with predefined options)
+  const isReadonly = await combobox.getAttribute('readonly') !== null;
+
+  if (!isReadonly) {
+    // Editable combobox: type the option text to filter the dropdown
+    try {
+      await combobox.fill(optionText);
+      await page.waitForTimeout(1000);
+    } catch {
+      console.log(`Could not type in combobox for "${labelText}", selecting from visible options...`);
+    }
+  }
+
+  // Wait for dropdown panel to appear
+  try {
+    await page.waitForSelector('ng-dropdown-panel', { state: 'visible', timeout: 5000 });
+  } catch {
+    console.log(`Dropdown panel not visible for "${labelText}", trying anyway...`);
+  }
+
+  // Click the matching option from the dropdown
+  await page.locator('ng-dropdown-panel .ng-option')
+    .filter({ hasText: optionText })
+    .first()
+    .click({ force: true });
+  await page.waitForTimeout(500);
+  console.log(`Selected "${optionText}" from "${labelText}" dropdown`);
+}
+/**
+ * Fill a text input field identified by its nearby label text.
+ * Works for standard text inputs, textareas, and ion-input elements.
+ *
+ * @param page - Playwright Page instance
+ * @param labelText - Visible label text near the input field
+ * @param value - Value to type into the input
+ */
+export async function fillInputByLabel(page: Page, labelText: string, value: string): Promise<void> {
+  const input = page.locator(
+    `xpath=//*[text()[normalize-space()="${labelText}"]]/ancestor::*[.//input or .//textarea][1]//input[not(@role="combobox")] | //*[text()[normalize-space()="${labelText}"]]/ancestor::*[.//textarea][1]//textarea`
+  ).first();
+
+  await input.scrollIntoViewIfNeeded();
+  await input.click({ force: true });
+  await input.fill(value);
+  await page.waitForTimeout(500);
+
+  console.log(`Filled "${value}" for field "${labelText}"`);
+}
+
+
+/**
  * Click calendar button associated with a label
  * Uses multiple fallback strategies to find the button
  * @param page - Playwright Page instance
