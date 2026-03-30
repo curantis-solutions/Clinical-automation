@@ -180,4 +180,23 @@ export abstract class BasePage {
   async selectOption(selector: string, value: string): Promise<void> {
     await this.page.selectOption(selector, value);
   }
+
+  /**
+   * Wait for a grid to stabilize by polling row count until it stops changing.
+   * Shared across all billing page objects (Claims, Batch, AR).
+   * @param rowCountSelector - CSS selector that matches one element per row
+   * @param maxAttempts - Maximum polling attempts (default 5)
+   */
+  protected async waitForGridStable(rowCountSelector: string, maxAttempts = 5): Promise<number> {
+    let prevCount = -1;
+    let currCount = 0;
+    let attempts = 0;
+    while (prevCount !== currCount && attempts < maxAttempts) {
+      prevCount = currCount;
+      await this.page.waitForTimeout(300);
+      currCount = await this.page.locator(rowCountSelector).count();
+      attempts++;
+    }
+    return currCount;
+  }
 }

@@ -592,4 +592,37 @@ export class CertificationPage extends BasePage {
   async isSaveButtonVisible(): Promise<boolean> {
     return await this.isElementVisible(this.selectors.saveButton);
   }
+
+  // ── Read Cert Row Data ──
+
+  /**
+   * Read the certifying (hospice) physician name from a Written cert row.
+   * Written row columns: BP | From | To | Hospice Physician | Signed | Attending | Signed | Completed
+   * Hospice Physician is column index 3 (0-based).
+   * @param rowIndex - 0-based cert row index (default 0)
+   */
+  async getWrittenCertifyingPhysicianName(rowIndex = 0): Promise<string> {
+    return await this.getWrittenCertColumnText(rowIndex, 3);
+  }
+
+  /**
+   * Read the attending physician name from a Written cert row.
+   * Attending Physician is column index 5 (0-based).
+   * @param rowIndex - 0-based cert row index (default 0)
+   */
+  async getWrittenAttendingPhysicianName(rowIndex = 0): Promise<string> {
+    return await this.getWrittenCertColumnText(rowIndex, 5);
+  }
+
+  /**
+   * Read text from a specific column in a Written cert data row.
+   * Uses the details button as anchor to find the row, then reads nth ion-col.
+   */
+  private async getWrittenCertColumnText(rowIndex: number, colIndex: number): Promise<string> {
+    const detailsBtn = this.page.locator(this.selectors.certificationWrittenDetails(rowIndex));
+    const row = detailsBtn.locator('xpath=ancestor::ion-row[1]');
+    const cols = row.locator('ion-col');
+    const text = await cols.nth(colIndex).textContent();
+    return text?.trim() ?? '';
+  }
 }

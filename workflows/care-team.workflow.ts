@@ -550,6 +550,13 @@ export class CareTeamWorkflow {
   }
 
   /**
+   * Read the displayed attending physician name from the care team section.
+   */
+  async getAttendingPhysicianName(index = 0): Promise<string> {
+    return await this.careTeamPage.getAttendingPhysicianName(index);
+  }
+
+  /**
    * Wait for success toast notification
    */
   async waitForSuccessToast(timeout: number = 5000): Promise<void> {

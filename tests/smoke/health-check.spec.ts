@@ -114,7 +114,7 @@ test.describe('Health Check Tests @smoke', () => {
 
     // Test tablet viewport (768x1024)
     await page.setViewportSize(VIEWPORTS.tablet);
-    await page.reload();
+    await page.reload({ timeout: TIMEOUTS.API });
     await page.waitForLoadState('networkidle');
 
     // Take tablet screenshot
@@ -125,7 +125,7 @@ test.describe('Health Check Tests @smoke', () => {
 
     // Test mobile viewport (375x667)
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.reload();
+    await page.reload({ timeout: TIMEOUTS.API });
     await page.waitForLoadState('networkidle');
 
     // Take mobile screenshot
@@ -144,7 +144,7 @@ test.describe('Health Check Tests @smoke', () => {
 
     // Only check SSL for HTTPS URLs
     if (baseUrl.startsWith('https://')) {
-      await page.goto(baseUrl);
+      await page.goto(baseUrl, { timeout: TIMEOUTS.API });
 
       // Get the protocol
       const protocol = new URL(page.url()).protocol;

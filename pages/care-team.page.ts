@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './base.page';
 import { selectNgOption, selectNgOptionByIndex, selectDateFromPicker } from '../utils/form-helpers';
+import { TIMEOUTS } from '../config/timeouts';
 
 /**
  * Care Team Types
@@ -153,7 +154,9 @@ export class CareTeamPage extends BasePage {
     await this.page.locator(this.selectors.careTeamNavBarItem).scrollIntoViewIfNeeded();
     await this.page.locator(this.selectors.careTeamNavBarItem).click();
     await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(2000);
+    // Wait for care team dropdown to be visible — page content loads after networkidle
+    await this.page.locator(this.selectors.careTeamDropdown).waitFor({ state: 'visible', timeout: TIMEOUTS.ACTION });
+    await this.page.waitForTimeout(1000);
     console.log('Navigated to Care Team tab');
   }
 
@@ -197,15 +200,17 @@ export class CareTeamPage extends BasePage {
   async selectCareTeam(teamName: string): Promise<void> {
     console.log(`Selecting care team: ${teamName}`);
 
-    await this.page.locator(this.selectors.careTeamDropdown).click();
-    await this.page.waitForTimeout(1000);
+    // Care team dropdown has a click-cover overlay — use force: true (framework pattern)
+    await this.page.locator(this.selectors.careTeamDropdown).click({ force: true });
+    await this.page.locator(this.selectors.careTeamSearchInput).waitFor({ state: 'visible', timeout: TIMEOUTS.ACTION });
 
     await this.page.locator(this.selectors.careTeamSearchInput).click();
     await this.page.locator(this.selectors.careTeamSearchInput).fill(teamName);
-    await this.page.waitForTimeout(1000);
 
+    // Wait for filtered option to appear before clicking
+    await this.page.locator(this.selectors.careTeamOption(0)).waitFor({ state: 'visible', timeout: TIMEOUTS.ACTION });
     await this.page.locator(this.selectors.careTeamOption(0)).click();
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(TIMEOUTS.SHORT);
 
     console.log(`Selected care team: ${teamName}`);
   }
@@ -821,5 +826,29 @@ export class CareTeamPage extends BasePage {
   async getAttendingPhysicianCount(): Promise<number> {
     const physicianRows = this.page.locator('[data-cy^="btn-current-physician-"]');
     return await physicianRows.count();
+  }
+
+  /**
+   * Read the displayed attending physician name from the care team table.
+   * The button `btn-current-physician-{i}` is inside a `<tr>` — the first `<td>` has the name.
+   * @param index - 0-based row index (default 0)
+   * @returns Full physician name as displayed (e.g., "MDcypress cypresslast")
+   */
+  async getAttendingPhysicianName(index = 0): Promise<string> {
+    // Try btn-current-physician (admitted patients) first, fall back to table row (referral)
+    const btn = this.page.locator(this.selectors.attendingPhysicianRow(index));
+    if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const row = btn.locator('xpath=ancestor::tr[1]');
+      const firstCell = row.locator('td').first();
+      const text = await firstCell.textContent({ timeout: 5000 });
+      return text?.trim() ?? '';
+    }
+    // Fallback: find the Attending Physician section's table and read the data row
+    const physicianTable = this.page.locator(this.selectors.addAttendingPhysician).locator('xpath=ancestor::*[3]//table').first();
+    await physicianTable.waitFor({ state: 'visible', timeout: 10000 });
+    const dataRow = physicianTable.locator('tr').filter({ has: this.page.locator('td') }).nth(index);
+    const firstCell = dataRow.locator('td').first();
+    const text = await firstCell.textContent({ timeout: 5000 });
+    return text?.trim() ?? '';
   }
 }

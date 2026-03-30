@@ -142,6 +142,8 @@ export interface BenefitFormData {
   previousHospiceDischargeDate?: string;
   /** Date of final bill (MM/DD/YYYY) */
   dateOfFinalBill?: string;
+  /** Notice accepted date (MM/DD/YYYY) — only available post-admission */
+  noticeAcceptedDate?: string;
 
   // === Room And Board Eligibility Details ===
   /** Patient liability */

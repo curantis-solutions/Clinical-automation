@@ -33,6 +33,10 @@ import { AdmitPatientWorkflow } from '../workflows/admit-patient.workflow';
 import { OrderEntryPage } from '../pages/order-entry.page';
 import { ProviderPanelPage } from '../pages/provider-panel.page';
 import { CarePlanPage } from '../pages/care-plan.page';
+import { ClaimsPage } from '../pages/billing/claims.page';
+import { BatchManagementPage } from '../pages/billing/batch-management.page';
+import { AccountsReceivablePage } from '../pages/billing/accounts-receivable.page';
+import { BillingWorkflow } from '../workflows/billing.workflow';
 
 /**
  * Collection of all page objects
@@ -56,6 +60,10 @@ export interface PageObjects {
   orderEntry: OrderEntryPage;
   providerPanel: ProviderPanelPage;
   carePlan: CarePlanPage;
+  claims: ClaimsPage;
+  batchManagement: BatchManagementPage;
+  accountsReceivable: AccountsReceivablePage;
+  billingWorkflow: BillingWorkflow;
 }
 
 // Define fixture types
@@ -92,6 +100,10 @@ function createPageObjectsForPage(page: Page): PageObjects {
     orderEntry: new OrderEntryPage(page),
     providerPanel: new ProviderPanelPage(page),
     carePlan: new CarePlanPage(page),
+    claims: new ClaimsPage(page),
+    batchManagement: new BatchManagementPage(page),
+    accountsReceivable: new AccountsReceivablePage(page),
+    billingWorkflow: new BillingWorkflow(page),
   };
 }
 
