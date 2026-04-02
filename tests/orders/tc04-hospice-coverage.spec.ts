@@ -3,6 +3,7 @@ import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objec
 import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-04: Hospice Coverage – Edit & Validate
@@ -27,8 +28,8 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once
@@ -64,7 +65,8 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       await pages.orderEntry.submitOrder();
     });
 
-    await test.step('Edit hospice coverage to Yes', async () => {
+    await test.step('Search and edit hospice coverage to Yes', async () => {
+      await pages.orderEntry.searchOrders('Test DME Hospice No');
       await pages.orderEntry.editHospiceCoverage(0, {
         hospicePays: true,
       });
@@ -74,6 +76,7 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       const details = await pages.orderEntry.getOrderDetailsText(0);
       expect(details).toContain('Yes');
       console.log('Hospice coverage updated to Yes');
+      await pages.orderEntry.clearSearch();
     });
   });
 
@@ -91,7 +94,8 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       await pages.orderEntry.submitOrder();
     });
 
-    await test.step('Edit hospice coverage to No with reason', async () => {
+    await test.step('Search and edit hospice coverage to No with reason', async () => {
+      await pages.orderEntry.searchOrders('Test Treatment Hospice Yes');
       await pages.orderEntry.editHospiceCoverage(0, {
         hospicePays: false,
         reasonForNonCoverage: 'NRMR: Not related, medically reasonable',
@@ -102,6 +106,7 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       const details = await pages.orderEntry.getOrderDetailsText(0);
       expect(details).toContain('No');
       console.log('Hospice coverage updated to No');
+      await pages.orderEntry.clearSearch();
     });
   });
 
@@ -116,7 +121,8 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       await pages.orderEntry.selectApprovalType('Verbal');
       await pages.orderEntry.submitOrder();
 
-      // Edit to No
+      // Search and edit to No
+      await pages.orderEntry.searchOrders('Test Supplies for History');
       await pages.orderEntry.editHospiceCoverage(0, {
         hospicePays: false,
       });
@@ -127,6 +133,7 @@ test.describe.serial('TC-04: Hospice Coverage – Edit & Validate', () => {
       const historyText = await pages.orderEntry.getHistoryText(0);
       expect(historyText).toBeTruthy();
       console.log('History section captures hospice coverage changes');
+      await pages.orderEntry.clearSearch();
     });
   });
 });

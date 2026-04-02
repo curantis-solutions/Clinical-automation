@@ -4,6 +4,7 @@ import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { MedicationOrderData } from '../../types/order.types';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-14: Medication Order – Add/Edit MAR Details & Verify on Care Plan
@@ -35,8 +36,8 @@ test.describe.serial('TC-14: Medication Order – Add/Edit MAR Details & Care Pl
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login as RN
@@ -87,12 +88,14 @@ test.describe.serial('TC-14: Medication Order – Add/Edit MAR Details & Care Pl
     test.setTimeout(120000);
 
     await test.step('Add MAR details via ellipsis menu', async () => {
+      await pages.orderEntry.searchOrders('Amoxicillin');
       await pages.orderEntry.addEditMARDetails(0, {
         enabled: true,
         time: '09:00',
         daysOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
       });
       console.log('MAR details added to order #1');
+      await pages.orderEntry.clearSearch();
     });
   });
 
@@ -165,12 +168,14 @@ test.describe.serial('TC-14: Medication Order – Add/Edit MAR Details & Care Pl
     test.setTimeout(120000);
 
     await test.step('Add MAR details with Administration option', async () => {
+      await pages.orderEntry.searchOrders('Zithromax');
       await pages.orderEntry.addEditMARDetails(0, {
         enabled: true,
         administration: 'Morning',
         additionalNotes: 'Take on empty stomach',
       });
       console.log('MAR details added to order #2');
+      await pages.orderEntry.clearSearch();
     });
   });
 

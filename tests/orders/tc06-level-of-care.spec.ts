@@ -4,6 +4,7 @@ import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { LOCOrderData } from '../../types/order.types';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-06: Level of Care (LOC) Orders
@@ -38,8 +39,8 @@ test.describe.serial('TC-06: Level of Care (LOC) Orders', () => {
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once
@@ -120,6 +121,7 @@ test.describe.serial('TC-06: Level of Care (LOC) Orders', () => {
     test.setTimeout(120000);
 
     await test.step('Void the Continuous Care order from Step 3', async () => {
+      await pages.orderEntry.searchOrders('Continuous Care');
       await pages.orderEntry.voidOrder(0, 'Test void reason - replacing with RHC');
     });
 
@@ -134,6 +136,8 @@ test.describe.serial('TC-06: Level of Care (LOC) Orders', () => {
     });
 
     await test.step('Verify new RHC order on grid and previous CC order is voided', async () => {
+      // Clear search filter so both CC and RHC orders are visible
+      await pages.orderEntry.clearSearch();
       const rowCount = await pages.orderEntry.getOrderRowCount();
       expect(rowCount).toBeGreaterThan(0);
 
@@ -207,7 +211,9 @@ test.describe.serial('TC-06: Level of Care (LOC) Orders', () => {
     test.setTimeout(120000);
 
     await test.step('Void GIP order from Step 12-13', async () => {
+      await pages.orderEntry.searchOrders('General In-Patient');
       await pages.orderEntry.voidOrder(0, 'Patient no longer needs GIP');
+      await pages.orderEntry.clearSearch();
     });
 
     await test.step('Verify GIP voided and RHC becomes active on LOC page', async () => {

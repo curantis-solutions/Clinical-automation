@@ -4,6 +4,7 @@ import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { MedicationOrderData } from '../../types/order.types';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-12: Medication Order – Full Flow with MAR & PRN
@@ -28,8 +29,8 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once
@@ -67,6 +68,7 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
         marTime: '08:00',
         marDaysOfWeek: ['Monday', 'Wednesday', 'Friday'],
         marNotes: 'Administer with food',
+        discontinueDate: DateHelper.getFutureDate(30),
         hospicePays: true,
         orderingProvider: physicianName,
         role: 'Registered Nurse (RN)',
@@ -77,6 +79,7 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
     });
 
     await test.step('Verify order on grid', async () => {
+      await pages.orderEntry.searchOrders('Morphine injection');
       const rowCount = await pages.orderEntry.getOrderRowCount();
       expect(rowCount).toBeGreaterThan(0);
       console.log('Medication order with PRN & MAR on grid');
@@ -87,6 +90,7 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
       const details = await pages.orderEntry.getOrderDetailsText(0);
       expect(details).toBeTruthy();
       console.log('Medication order details verified');
+      await pages.orderEntry.clearSearch();
     });
   });
 
@@ -108,6 +112,7 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
     });
 
     await test.step('Discontinue the medication order', async () => {
+      await pages.orderEntry.searchOrders('Ibuprofen-famotidine');
       await pages.orderEntry.discontinueOrder(0, {
         discontinueDate: todayFormatted,
         discontinueProviderName: physicianName,
@@ -117,12 +122,14 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
     });
 
     await test.step('Verify discontinued order', async () => {
-      await pages.orderEntry.toggleHideDiscontinued();
+      // await pages.orderEntry.toggleHideDiscontinued();
+      await pages.orderEntry.searchOrders('Ibuprofen-famotidine');
 
       // getOrderDetailsText already clicks the caret internally
       const details = await pages.orderEntry.getOrderDetailsText(0);
       expect(details).toBeTruthy();
       console.log('Medication order discontinued and verified');
+      await pages.orderEntry.clearSearch();
     });
   });
 
@@ -206,6 +213,48 @@ test.describe.serial('TC-12: Medication Order – Full Flow with MAR & PRN', () 
       await expect(startDate).toContainText(todayFormatted);
 
       console.log('Order verified in Order Management grid');
+    });
+
+    await test.step('Add operational note on OM page', async () => {
+      // Click ellipsis on the first order row in OM grid
+      const orderRow = sharedPage.locator('ion-row.order-record-rows').first();
+      await orderRow.locator('[data-cy="btn-allergy-more"]').click();
+      await sharedPage.waitForTimeout(1000);
+      console.log('Clicked ellipsis on OM order row');
+
+      // Click "Add an Operational Note"
+      await sharedPage.locator('[data-cy="btn-add-notes"]').click();
+      await sharedPage.waitForTimeout(2000);
+      console.log('Opened Add Operational Note dialog');
+
+      // Fill the note textarea
+      await sharedPage.locator('ion-textarea[formcontrolname="note"] textarea').fill('Cross-page validation note');
+      await sharedPage.waitForTimeout(500);
+
+      // Click Save
+      await sharedPage.locator('add-notes-popover button.save-button').click();
+      await sharedPage.waitForTimeout(3000);
+      console.log('Operational note saved');
+    });
+
+    await test.step('Navigate to patient Order Entry', async () => {
+      // Click patient ID link to navigate to patient
+      const patientIdLink = sharedPage.locator('ion-row.order-record-rows').first().locator('.ion-col-patient-id a');
+      await patientIdLink.click();
+      await sharedPage.waitForTimeout(3000);
+      console.log('Navigated to patient profile via patient ID link');
+
+      await pages.orderEntry.navigateToOrderEntry();
+    });
+
+    await test.step('Verify operational note in OE history', async () => {
+      const searchTerm = capturedOrderId || 'Acetaminophen';
+      await pages.orderEntry.searchOrders(searchTerm);
+      await pages.orderEntry.clickCaretOnRow(0);
+      const historyText = await pages.orderEntry.getHistoryText(0);
+      expect(historyText).toContain('Cross-page validation note');
+      console.log('Operational note verified on OE page');
+      await pages.orderEntry.clearSearch();
     });
   });
 });

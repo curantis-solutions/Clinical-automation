@@ -98,11 +98,13 @@ export interface MedicationOrderData {
 export interface CompoundMedicationOrderData {
   medicationName: string;
   ingredients: string[];
+  customStrength?: string;
   dosage?: string;
   route?: string;
   frequency?: string;
   startDate?: string;
   orderingProvider: string;
+  hospicePays?: boolean;
   role: OrderRole;
   approvalType: OrderApprovalType;
 }

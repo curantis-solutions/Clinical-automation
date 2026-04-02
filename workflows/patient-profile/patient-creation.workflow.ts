@@ -125,6 +125,12 @@ export async function addPatientWorkflow(
   let patientLastName: string = '';
   let patientSSN: string = '';
 
+  // Promise that resolves when the patient-charts API responds with the new patient ID
+  let resolvePatientId: (id: number) => void;
+  const patientIdPromise = new Promise<number>((resolve) => {
+    resolvePatientId = resolve;
+  });
+
   try {
 
 
@@ -134,6 +140,7 @@ export async function addPatientWorkflow(
     setupPatientChartListener(page, (capturedPatientId) => {
       patientId = capturedPatientId;
       console.log(`📋 Captured Patient ID: ${patientId}`);
+      resolvePatientId(capturedPatientId);
     });
 
     // ===========================================================================
@@ -237,9 +244,21 @@ export async function addPatientWorkflow(
     console.log('💾 Saving patient...');
     await patientPage.savePatient();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
 
-    console.log('✅ Patient saved successfully');
+    // Wait for the API interceptor to capture the patient ID (up to 15s)
+    try {
+      patientId = await Promise.race([
+        patientIdPromise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timed out waiting for patient ID from API')), 15000)
+        ),
+      ]);
+      console.log(`✅ Patient saved successfully (ID: ${patientId})`);
+    } catch (err) {
+      console.warn(`⚠️ ${err instanceof Error ? err.message : err} — patientId may be undefined`);
+      await page.waitForTimeout(3000);
+      console.log('✅ Patient saved successfully (ID not captured from API)');
+    }
 
     // ===========================================================================
     // STEP 8: RETURN TO PATIENT LIST (if requested)

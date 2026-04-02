@@ -108,6 +108,9 @@ export class TestDataManager {
   static getPhysician(): string {
     return this._resolvedPhysician || this.getData().physician;
   }
+  static getOtherPhysician(): string | undefined {
+    return this.getData().otherPhysician;
+  }
 
   /**
    * Get care team name
@@ -169,6 +172,9 @@ export class TestDataManager {
    * @param patientId - The admitted patient's MRN/ID
    */
   static setOrdersPatientId(patientId: string | number): void {
+    const id = String(patientId);
+
+    // Write to runtime JSON file
     let data: Record<string, any> = {};
     try {
       if (fs.existsSync(RUNTIME_DATA_PATH)) {
@@ -176,11 +182,26 @@ export class TestDataManager {
       }
     } catch { /* start fresh */ }
 
-    data.ordersPatientId = String(patientId);
+    data.ordersPatientId = id;
     data.ordersPatientIdUpdatedAt = new Date().toISOString();
-
     fs.writeFileSync(RUNTIME_DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
-    console.log(`✅ Saved ordersPatientId: ${patientId} to ${RUNTIME_DATA_PATH}`);
+    console.log(`✅ Saved ordersPatientId: ${id} to ${RUNTIME_DATA_PATH}`);
+
+    // Also update config/test-data.ts so the ID persists across runs
+    const configPath = path.resolve(__dirname, '../config/test-data.ts');
+    try {
+      const configContent = fs.readFileSync(configPath, 'utf-8');
+      const updated = configContent.replace(
+        /ordersPatientId:\s*'[^']*'/,
+        `ordersPatientId: '${id}'`
+      );
+      if (updated !== configContent) {
+        fs.writeFileSync(configPath, updated, 'utf-8');
+        console.log(`✅ Updated ordersPatientId in config/test-data.ts to: ${id}`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Could not update config/test-data.ts: ${err}`);
+    }
   }
 
   /**
