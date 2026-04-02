@@ -7,7 +7,8 @@
  * SCENARIO: Create patient → fill all sections → admit → verify claims →
  *           verify NOE details + UB-04 PDF → add Notice Accepted Date →
  *           submit NOE → verify 837 Batch + AR → verify download options →
- *           wait for 812 in Ready → verify 812 PDF
+ *           wait for 812 in Ready → verify 812 PDF →
+ *           submit 812 → verify 837 Batch + AR for claims
  *
  * RUN:
  *   npx playwright test tests/billing/e2e-hospice-medicare.spec.ts --headed --workers=1
@@ -499,5 +500,51 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await pages.billingWorkflow.verifyClaimUb04(capturedPatientId, expected, 'Claims');
 
     console.log(`✅ Step 23: 812 PDF verified — Claim: ${claimId} | Attending: ${attendingLastName}`);
+  });
+
+  // ===========================================================================
+  // STEP 24: Submit 812 from Ready > Claims
+  // ===========================================================================
+  test('Step 24: Submit 812 claim from Ready', async () => {
+    test.setTimeout(TEST_TIMEOUTS.STANDARD);
+
+    await pages.billingWorkflow.submitClaimFromReady(capturedPatientId, '812');
+
+    console.log(`✅ Step 24: 812 claim submitted from Ready > Claims`);
+  });
+
+  // ===========================================================================
+  // STEP 25: Verify 812 in 837 Batch > Claims — format: 837 only
+  // ===========================================================================
+  test('Step 25: Verify 812 in 837 Batch and download', async () => {
+    test.setTimeout(TEST_TIMEOUTS.EXTENDED);
+
+    const { detail, availableFormats } = await pages.billingWorkflow.verifyAndDownloadClaimIn837Batch(
+      capturedPatientId,
+      capturedPayerName,
+      '837'
+    );
+
+    expect(availableFormats).toContain('837');
+    console.log(`✅ Step 25: 837 Batch verified — Claim: ${detail.claimId} | Formats: [${availableFormats.join(', ')}]`);
+  });
+
+  // ===========================================================================
+  // STEP 26: Verify 812 in AR > Claims — status=Submitted, billedAmount != $0.00
+  // ===========================================================================
+  test('Step 26: Verify 812 in AR and download', async () => {
+    test.setTimeout(TEST_TIMEOUTS.EXTENDED);
+
+    const { arData, availableFormats } = await pages.billingWorkflow.verifyAndDownloadClaimInAR(
+      capturedPatientId,
+      capturedPayerName,
+      capturedPatientName,
+      '837'
+    );
+
+    expect(arData.status).toBe('Submitted');
+    expect(arData.billedAmount).not.toBe('$0.00');
+    expect(availableFormats).toContain('837');
+    console.log(`✅ Step 26: AR verified — Status: ${arData.status} | Billed: ${arData.billedAmount} | Formats: [${availableFormats.join(', ')}]`);
   });
 });

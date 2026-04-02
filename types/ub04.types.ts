@@ -81,6 +81,13 @@ export interface Ub04ExpectedFields {
   /** Box 32-35: Condition Codes — set to [] to verify empty, or provide code strings */
   box32to35_conditionCodes?: string[];
 
+  /** Box 35: Occurrence Span Code (e.g., '77' for non-covered days) */
+  box35_occurrenceSpanCode?: string;
+  /** Box 35: Occurrence Span From Date (MMDDYY) */
+  box35_occurrenceSpanFromDate?: string;
+  /** Box 35: Occurrence Span Through Date (MMDDYY) */
+  box35_occurrenceSpanToDate?: string;
+
   // === Revenue Line Items (Box 42-49) ===
   /** Box 42-49: Revenue line items — set to [] to verify empty (no RLIS) */
   revenueLineItems?: Ub04RevenueLineItem[];

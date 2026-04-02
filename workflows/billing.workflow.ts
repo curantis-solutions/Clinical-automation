@@ -3,7 +3,7 @@ import { ClaimsPage } from '../pages/billing/claims.page';
 import { BatchManagementPage } from '../pages/billing/batch-management.page';
 import { AccountsReceivablePage } from '../pages/billing/accounts-receivable.page';
 import { DashboardPage } from '../pages/dashboard.page';
-import { NoticeExpectedData, NoticeRowData, BatchDetailRowData, ARRowData, BatchDownloadFormat, ARDownloadFormat } from '../types/billing.types';
+import { NoticeExpectedData, NoticeRowData, BatchDetailRowData, ARRowData, BatchDownloadFormat, ARDownloadFormat, BillType } from '../types/billing.types';
 import { Ub04ExpectedFields } from '../types/ub04.types';
 
 /**
@@ -100,7 +100,7 @@ export class BillingWorkflow {
    * Submit the NOE (81A) from Ready > Notices via Generate Claim.
    * Handles the full modal flow: post date → Submit Batch → close success dialog.
    */
-  async submitNoeFromReady(patientId: string): Promise<void> {
+  async submitNoeFromReady(patientId: string, postDate?: string): Promise<void> {
     await this.navigateToBillingClaims('Ready');
     await this.claimsPage.switchSecondaryTab('Notices');
     await this.claimsPage.searchByPatient(patientId);
@@ -113,15 +113,68 @@ export class BillingWorkflow {
 
     await this.claimsPage.selectClaimRow(noeRow);
     await this.claimsPage.clickGenerateClaim();
-    await this.claimsPage.completeGenerateClaimModal();
+    await this.claimsPage.completeGenerateClaimModal(postDate);
+  }
+
+  // ── Claim Submission ──
+
+  /**
+   * Submit a claim (e.g., 812) from Ready > Claims via Generate Claim.
+   * Handles the full modal flow: select row → Generate Claim → post date → Submit Batch → close success dialog.
+   */
+  async submitClaimFromReady(patientId: string, billType: BillType, postDate?: string): Promise<void> {
+    await this.navigateToBillingClaims('Ready');
+    await this.claimsPage.switchSecondaryTab('Claims');
+    await this.claimsPage.searchByPatient(patientId);
+
+    const row = await this.claimsPage.findRowByPatientAndBillType(patientId, billType);
+    if (row < 0) {
+      throw new Error(`Claim ${billType} not found in Ready > Claims for patient ${patientId}`);
+    }
+
+    await this.claimsPage.selectClaimRow(row);
+    await this.claimsPage.clickGenerateClaim();
+    await this.claimsPage.completeGenerateClaimModal(postDate);
   }
 
   // ── 837 Batch Management Verification ──
 
   /**
-   * Verify the submitted NOE appears in 837 Batch Management > Notices.
-   * Polls until the batch appears, then verifies patient in expanded detail.
+   * Verify a submitted claim in 837 Batch > Claims and download batch file.
+   * Navigates once, polls for batch, verifies detail, then opens Batch Options.
+   * Returns { detail, availableFormats }.
    */
+  async verifyAndDownloadClaimIn837Batch(
+    patientId: string,
+    payerName: string,
+    format: BatchDownloadFormat
+  ): Promise<{ detail: BatchDetailRowData; availableFormats: string[] }> {
+    await this.navigateTo837BatchManagement();
+
+    let batchData: { batchName: string; totalClaims: string } = { batchName: '', totalClaims: '0' };
+    await expect(async () => {
+      await this.batchPage.navigateToTab('Claims');
+      await this.batchPage.searchBatch(patientId);
+      const rowCount = await this.batchPage.getBatchRowCount();
+      if (rowCount < 1) throw new Error(`No 837 batch found for patient ${patientId} in Claims tab`);
+      batchData = await this.batchPage.readBatchRowData(0);
+    }).toPass({ timeout: 60_000, intervals: [5_000] });
+
+    const detailPatientIdText = await this.batchPage.waitForDetailAndGetPatientId();
+    if (!detailPatientIdText.includes(patientId)) {
+      throw new Error(`Patient ${patientId} not found in batch "${batchData.batchName}" detail (got "${detailPatientIdText}")`);
+    }
+
+    const detail = await this.batchPage.readDetailRowData(0);
+    console.log(`  837 Batch (Claims): ${batchData.batchName} | Patient: ${detail.patientId} | Claim: ${detail.claimId}`);
+
+    await this.batchPage.searchBatch(patientId);
+    const availableFormats = await this.batchPage.downloadBatch(0, format);
+    console.log(`  837 Batch download (${format}) | Formats: [${availableFormats.join(', ')}]`);
+
+    return { detail, availableFormats };
+  }
+
   /**
    * Verify NOE in 837 Batch > Notices and download batch file — single navigation.
    * Navigates once, polls for batch, verifies detail, then opens Batch Options.
@@ -153,8 +206,6 @@ export class BillingWorkflow {
     const detail = await this.batchPage.readDetailRowData(0);
     console.log(`  837 Batch: ${batchData.batchName} | Patient: ${detail.patientId} | Claim: ${detail.claimId}`);
 
-    // Already on the batch page — download without re-navigating
-    // Need to re-search since expanded state may interfere with checkbox
     await this.batchPage.searchBatch(patientId);
     const availableFormats = await this.batchPage.downloadBatch(0, format);
     console.log(`  837 Batch download (${format}) | Formats: [${availableFormats.join(', ')}]`);
@@ -212,6 +263,71 @@ export class BillingWorkflow {
     console.log(`  AR download (${format}) | Formats: [${availableFormats.join(', ')}]`);
 
     return { arData, availableFormats };
+  }
+
+  /**
+   * Verify a submitted claim in AR > Claims and download claim file.
+   * Navigates once, polls for entry, verifies status=Submitted and billedAmount != $0.00.
+   * Returns { arData, availableFormats }.
+   */
+  async verifyAndDownloadClaimInAR(
+    patientId: string,
+    payerName: string,
+    patientName: string,
+    format: ARDownloadFormat
+  ): Promise<{ arData: ARRowData; availableFormats: string[] }> {
+    await this.navigateToAccountsReceivable();
+
+    let arData!: ARRowData;
+    await expect(async () => {
+      await this.arPage.navigateToTab('Claims');
+      await this.arPage.searchByPatient(patientId);
+      const rowCount = await this.arPage.getVisibleRowCount();
+      if (rowCount < 1) throw new Error(`No AR entries found for patient ${patientId} in Claims tab`);
+      arData = await this.arPage.readRowData(0);
+    }).toPass({ timeout: 60_000, intervals: [5_000] });
+
+    const normalizedPatientName = arData.patientName.replace(/\s+/g, ' ').trim();
+    const normalizedPayerName = arData.payerName.replace(/\s+/g, ' ').trim();
+
+    if (!normalizedPatientName.includes(patientName)) {
+      throw new Error(`AR patient name mismatch: expected "${patientName}", got "${normalizedPatientName}"`);
+    }
+    if (!normalizedPayerName.includes(payerName)) {
+      throw new Error(`AR payer name mismatch: expected "${payerName}", got "${normalizedPayerName}"`);
+    }
+    if (arData.status !== 'Submitted') {
+      throw new Error(`AR status mismatch: expected "Submitted", got "${arData.status}"`);
+    }
+    if (arData.billedAmount === '$0.00') {
+      throw new Error(`AR billed amount should not be $0.00 for a claim`);
+    }
+
+    console.log(`  AR (Claims): Status=${arData.status} | Billed=${arData.billedAmount}`);
+
+    const availableFormats = await this.arPage.downloadClaimAs(0, payerName, format);
+    console.log(`  AR download (${format}) | Formats: [${availableFormats.join(', ')}]`);
+
+    return { arData, availableFormats };
+  }
+
+  // ── 837 Text Verification ──
+
+  /**
+   * Download the 837 text file from AR and return its content.
+   * Navigates to AR > specified tab, searches for patient, opens Download Claim modal,
+   * selects 837 format, and reads the downloaded text file.
+   */
+  async download837TextFromAR(
+    patientId: string,
+    payerName: string,
+    secondaryTab: 'Claims' | 'Notices' = 'Claims'
+  ): Promise<string> {
+    await this.navigateToAccountsReceivable();
+    await this.arPage.navigateToTab(secondaryTab);
+    await this.arPage.searchByPatient(patientId);
+
+    return await this.arPage.downloadClaimAsText(0, payerName);
   }
 
   // ── UB-04 PDF Verification ──
@@ -308,6 +424,17 @@ export class BillingWorkflow {
       for (const code of expected.diagnosisCodes) {
         assertPresent('Box 67-72 (Diagnosis)', code);
       }
+    }
+
+    // Box 35: Occurrence Span Code (e.g., '77' for non-covered days)
+    if (expected.box35_occurrenceSpanCode) {
+      assertPresent('Box 35 (Occurrence Span Code)', expected.box35_occurrenceSpanCode);
+    }
+    if (expected.box35_occurrenceSpanFromDate) {
+      assertPresent('Box 35 (Occurrence Span From)', expected.box35_occurrenceSpanFromDate);
+    }
+    if (expected.box35_occurrenceSpanToDate) {
+      assertPresent('Box 35 (Occurrence Span To)', expected.box35_occurrenceSpanToDate);
     }
 
     if (expected.box76_attendingLastName) assertPresent('Box 76 (Attending)', expected.box76_attendingLastName);
