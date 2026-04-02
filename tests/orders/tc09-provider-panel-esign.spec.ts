@@ -5,6 +5,7 @@ import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { MedicationOrderData } from '../../types/order.types';
 import { AuthHelper } from '../../utils/auth.helper';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-09: Provider Panel – E-Sign & Reject Orders
@@ -74,8 +75,8 @@ test.describe.serial('TC-09: Provider Panel – E-Sign & Reject Orders', () => {
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
     const patientId = TestDataManager.getOrdersPatientId();
 

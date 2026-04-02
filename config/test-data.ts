@@ -10,6 +10,7 @@
 export interface TenantTestData {
   // Physician data
   physician: string;           // Short name for search (e.g., "MDcypress")
+  otherPhysician?: string;     // A different provider name for attestation switch tests
 
   // Care team
   careTeam: string;            // Care team name
@@ -42,12 +43,13 @@ export const testData: Record<string, EnvironmentTestData> = {
     // CTH tenant in QA
     cth: {
       physician: 'Cypresslast',
+      otherPhysician: 'directorcth',
       careTeam: 'ACypressIDG',
       facilitySNF: 'papa pig nurse care',
       facilityALF: 'Allen Assisted Facility',
       receivedBy: 'MDcypress cypresslast',
       facilityPNF: 'Automation Facility',
-      ordersPatientId: '214101',
+      ordersPatientId: '216267',
     },
 
     // Integrum tenant in QA

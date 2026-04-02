@@ -109,6 +109,17 @@ export class LOCWorkflow {
     // Fill the LOC form
     await this.fillLOCForm(data);
 
+    // Wait for "Creating order..." dialog to appear and disappear
+    try {
+      const creatingDialog = this.page.getByText('Creating order');
+      await creatingDialog.waitFor({ state: 'visible', timeout: 5000 });
+      await creatingDialog.waitFor({ state: 'hidden', timeout: 30000 });
+      console.log('Order creation completed');
+    } catch {
+      // Dialog may have already disappeared
+      await this.page.waitForTimeout(5000);
+    }
+
     // Verify the order appears in the grid
     const found = await this.locPage.verifyOrderInGrid(locType);
     if (!found) {

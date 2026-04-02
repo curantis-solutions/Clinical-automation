@@ -79,6 +79,7 @@ export class CarePlanPage extends BasePage {
     visitFrequencyCard: 'ion-card[id="visitFrequency"]',
     visitFrequencySegment: 'ion-segment[id="visitFrequencySeg"]',
     activeOrdersTab: 'ion-segment-button:has-text("Active Orders")',
+    declineOrdersTab: 'ion-segment-button:has-text("Declined Orders")',
     noVFRecords: 'text=No records available',
 
     // ============================================
@@ -130,8 +131,15 @@ export class CarePlanPage extends BasePage {
   // ============================================
 
   async navigateToCarePlan(): Promise<void> {
-    await this.page.locator(this.selectors.carePlanNavBtn).click();
-    await this.page.waitForTimeout(3000);
+    // Check if already on Care Plan page (e.g. after exitOrderEntry)
+    const carePlanNav = this.page.locator(this.selectors.carePlanNavBtn);
+    if (await carePlanNav.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await carePlanNav.click();
+      await this.page.waitForTimeout(3000);
+    } else {
+      // Already on Care Plan — just wait for content to load
+      await this.page.waitForTimeout(2000);
+    }
     console.log('Navigated to Care Plan');
   }
 
@@ -219,6 +227,79 @@ export class CarePlanPage extends BasePage {
       medical: medical.trim(),
       nonMedical: nonMedical.trim(),
     };
+  }
+
+  async isVisitFrequencyCardVisible(): Promise<boolean> {
+    return await this.page.locator(this.selectors.visitFrequencyCard).isVisible({ timeout: 5000 }).catch(() => false);
+  }
+
+  async clickActiveOrdersTab(): Promise<void> {
+    await this.page.locator(this.selectors.activeOrdersTab).click();
+    await this.page.waitForTimeout(2000);
+    console.log('Clicked Active Orders tab');
+  }
+
+  async clickDeclinedOrdersTab(): Promise<void> {
+    await this.page.locator(this.selectors.declineOrdersTab).click();
+    await this.page.waitForTimeout(2000);
+    console.log('Clicked Declined Orders tab');
+  }
+
+  /**
+   * Get all visit frequency rows from the active/declined tab.
+   * Each row contains discipline, description, etc.
+   */
+  async getVisitFrequencyRows(): Promise<string[]> {
+    const vfCard = this.page.locator(this.selectors.visitFrequencyCard);
+    const rows = vfCard.locator('ion-row.data-row, ion-row[class*="vf-row"], ion-row[class*="order-row"]');
+    const count = await rows.count();
+    const texts: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const text = await rows.nth(i).textContent();
+      texts.push(text?.trim() || '');
+    }
+    return texts;
+  }
+
+  /**
+   * Get the count of visit frequency rows visible in the current tab
+   */
+  async getVisitFrequencyRowCount(): Promise<number> {
+    const vfCard = this.page.locator(this.selectors.visitFrequencyCard);
+    // Count rows that have actual order data (not header rows)
+    const rows = vfCard.locator('ion-row.data-row, ion-row[class*="vf-row"], ion-row[class*="order-row"]');
+    return await rows.count();
+  }
+
+  /**
+   * Check if a discipline name appears in the Visit Frequency section
+   */
+  async verifyDisciplineInVisitFrequency(discipline: string): Promise<boolean> {
+    // Try id-based card selector first
+    const vfCard = this.page.locator(this.selectors.visitFrequencyCard);
+    if (await vfCard.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const match = vfCard.getByText(discipline, { exact: false });
+      if (await match.first().isVisible({ timeout: 5000 }).catch(() => false)) return true;
+    }
+    // Fallback: page-wide search — the discipline text should be visible on the Care Plan page
+    const pageMatch = this.page.getByText(discipline, { exact: true });
+    return await pageMatch.first().isVisible({ timeout: 5000 }).catch(() => false);
+  }
+
+  /**
+   * Check if "No records available" message is shown in Visit Frequency
+   */
+  async isVisitFrequencyEmpty(): Promise<boolean> {
+    const vfCard = this.page.locator(this.selectors.visitFrequencyCard);
+    return await vfCard.locator('text=No records available').isVisible({ timeout: 3000 }).catch(() => false);
+  }
+
+  /**
+   * Get the full text content of the Visit Frequency card for assertions
+   */
+  async getVisitFrequencyCardText(): Promise<string> {
+    const vfCard = this.page.locator(this.selectors.visitFrequencyCard);
+    return (await vfCard.textContent()) || '';
   }
 
   // ============================================

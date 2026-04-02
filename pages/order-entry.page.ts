@@ -37,7 +37,7 @@ export class OrderEntryPage extends BasePage {
     // Navigation
     orderEntryBtn: '[class*="orderEntryBtn"]',
     exitOrderEntry: '[data-cy="btn-exit-order-entry-page"]',
-    intakeOrdersBtn: '[data-cy="btn-intake-orders"]',
+    intakeOrdersBtn: 'button[data-cy="btn-nav-bar-item-meds"]:has-text("Intake Meds")',
     levelOfCare:'a[href*="level-of-care"]',
 
     // Add Order
@@ -84,7 +84,7 @@ export class OrderEntryPage extends BasePage {
     prnCheckbox: '[data-cy="checkbox-prn"]',
     prnReasonInput: 'input[data-cy="input-prn-reason"]',
     prnQuantityInput: 'input[data-cy="input-prn-quantity"]',
-    serviceDeclinedCheckbox: '[data-cy="checkbox-service-declined"]',
+    serviceDeclinedCheckbox: '[data-cy="checkbox-declined"]',
     dateDeclinedField: '[data-cy="date-declined"]',
     declinedReasonDropdown: '[data-cy="select-declined-reason"]',
     vfDescription: '[data-cy="value-description"]',
@@ -107,10 +107,10 @@ export class OrderEntryPage extends BasePage {
     marNotesInput: '[data-cy="input-mar-notes"]',
 
     // Compound/Free Text Medication
-    compoundFreeTextCheckbox: '[data-cy="checkbox-compound-free-text"]',
-    compoundMedNameInput: '[data-cy="input-compound-med-name"]',
-    addIngredientBtn: '[data-cy="btn-add-ingredient"]',
-    ingredientInput: (index: number) => `[data-cy="input-ingredient-${index}"]`,
+    compoundFreeTextCheckbox: '[data-cy="checkbox-compound-free-text"], [data-cy="checkbox-is-compound"]',
+    compoundMedNameInput: 'input[data-cy="input-ingredients-name"]',
+    addIngredientBtn: '[data-cy="btn-add-ingredient"], button:has-text("ADD INGREDIENT")',
+    ingredientInput: (index: number) => `input[data-cy="input-ingredients-ingredient-${index}"]`,
 
     // Level of Care Fields
     levelOfCareDropdown: '[data-cy="select-level-of-care"]',
@@ -133,8 +133,8 @@ export class OrderEntryPage extends BasePage {
     documentIndicator: '[data-cy="icon-document-indicator"]',
 
     // Attestation (Provider login)
-    attestationCheckbox: '[data-cy="checkbox-attestation"]',
-    attestationMessage: '[data-cy="text-attestation-message"]',
+    attestationCheckbox: '[data-cy="checkbox-e-sign-verification"] button',
+    attestationMessage: '[data-cy="checkbox-e-sign-verification"]+ion-label',
 
     // Order Grid
     orderGrid: '[data-cy="order-grid"]',
@@ -198,13 +198,16 @@ export class OrderEntryPage extends BasePage {
     // Grid Controls
     hideDiscontinuedToggle: '[data-cy="toggle-hide-discontinued-canceled-rejected-orders"]',
     searchInput: 'input.searchbar-input',
+    filterBtn: '[data-cy="btn-apply-selected-filters"]',
+    clearFiltersBtn: '[data-cy="btn-clear-selected-filters"]',
     filterTypeDropdown: '[data-cy="select-order-type"]',
     filterSignedDropdown: '[data-cy="select-filter-signed-status"]',
     filterTeamsDropdown: '[data-cy="select-filter-teams"]',
+    filterHospiceCoverageDropdown: '[data-cy="select-hospice-coverage"]',
     dateFilter: '[data-cy="date-filter"]',
     dateFrom: '[data-cy="date-activities-from-date-picker"]',
     dateTo: '[data-cy="date-activites-to-date-picker"]',
-    sortColumnHeader: (column: string) => `[data-cy="header-${column}"]`,
+    sortColumnHeader: (column: string) => `[data-cy="sort-by-${column}"]`,
     printAllBtn: '[data-cy="btn-print-all"]',
     printFilteredBtn: '[data-cy="btn-print-filtered"]',
 
@@ -216,7 +219,7 @@ export class OrderEntryPage extends BasePage {
 
     // Intake Orders Page
     intakeOrderGrid: '[data-cy="intake-order-grid"]',
-    intakeAddBtn: '[data-cy="btn-add-intake-order"]',
+    intakeAddBtn: 'patient-medications [id="addButtonId"]',
   };
 
   constructor(page: Page) {
@@ -317,6 +320,29 @@ export class OrderEntryPage extends BasePage {
     console.log('Start date appears pre-populated, skipping');
   }
 
+  async setDiscontinueDate(dateString: string): Promise<void> {
+    const discDateBtn = this.page.locator(this.selectors.discontinueDateField);
+    if (await discDateBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await discDateBtn.click();
+      await this.page.waitForTimeout(1000);
+      await DateHelper.selectDateFormatted(this.page, dateString);
+      console.log(`Set discontinue date: ${dateString}`);
+    } else {
+      // Fallback: find calendar button near "Discontinue Date" label
+      const calendarBtn = this.page.locator(
+        `xpath=//*[text()[normalize-space()="Discontinue Date"]]/ancestor::*[.//button[contains(.,"calendar") or @aria-label="custom calendar"]][1]//button[contains(.,"calendar") or @aria-label="custom calendar"]`
+      ).first();
+      if (await calendarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await calendarBtn.click();
+        await this.page.waitForTimeout(1000);
+        await DateHelper.selectDateFormatted(this.page, dateString);
+        console.log(`Set discontinue date via calendar: ${dateString}`);
+      } else {
+        console.log('Discontinue date field not visible, skipping');
+      }
+    }
+  }
+
   async selectOrderingProvider(role: OrderRole, providerName: string): Promise<void> {
     switch (role) {
       case 'Registered Nurse (RN)':
@@ -389,12 +415,15 @@ export class OrderEntryPage extends BasePage {
   }
 
   async clickProceed(): Promise<void> {
-    // Try Proceed button first, then fall back to Submit
+    // Try data-cy selector first, then role-based fallbacks
     const proceedBtn = this.page.locator(this.selectors.proceedBtn);
+    const proceedByRole = this.page.getByRole('button', { name: 'Proceed' });
     const submitByRole = this.page.getByRole('button', { name: 'Submit' });
 
     if (await proceedBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await proceedBtn.click({ force: true });
+    } else if (await proceedByRole.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await proceedByRole.click({ force: true });
     } else {
       await submitByRole.click({ force: true });
     }
@@ -456,20 +485,50 @@ export class OrderEntryPage extends BasePage {
   }
 
   async selectOtherDiscipline(otherDiscipline: string): Promise<void> {
-    await this.page.locator(this.selectors.otherDisciplineDropdown).click();
+    // Try data-cy selector first, fallback to placeholder text locator
+    const dataCyDropdown = this.page.locator(this.selectors.otherDisciplineDropdown);
+    const fallbackDropdown = this.page.getByText('Please select from this dropdown or type an alternative discipline').locator('xpath=ancestor::ng-select').first();
+    const dropdown = await dataCyDropdown.isVisible({ timeout: 3000 }).catch(() => false)
+      ? dataCyDropdown
+      : fallbackDropdown;
+
+    // Type the discipline name into the dropdown input
+    const input = dropdown.locator('input[role="combobox"], input').first();
+    await input.click();
+    await this.page.waitForTimeout(500);
+    await input.fill(otherDiscipline);
     await this.page.waitForTimeout(1000);
 
-    // Check if it's a custom discipline (not in the standard list)
-    const option = this.page.locator('[class*="ng-option"] span')
-      .filter({ hasText: otherDiscipline });
+    // Check if a predefined option matches in the dropdown panel
+    const exactOption = this.page.locator('ng-dropdown-panel .ng-option .ng-option-label')
+      .filter({ hasText: otherDiscipline })
+      .first();
 
-    if (await option.count() > 0) {
-      await option.click();
+    if (await exactOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await exactOption.click();
     } else {
-      // Type custom discipline and select "Other (custom)" option
-      await this.page.locator(this.selectors.otherDisciplineDropdown + ' input').fill(otherDiscipline);
+      // Custom discipline: same two-step flow as enterCustomStrength
+      // Step 1: Click the "Other" tag option to register the custom discipline
+      const otherTagOption = this.page.locator('ng-dropdown-panel [class*="ng-option"]')
+        .filter({ has: this.page.locator('.ng-tag-label', { hasText: 'Other' }) })
+        .first();
+      if (await otherTagOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await otherTagOption.click();
+        console.log('Clicked "Other" tag to register custom discipline');
+      }
       await this.page.waitForTimeout(1000);
-      await this.page.locator('[class*="ng-option"]').first().click();
+
+      // Step 2: Re-open the dropdown and select the now-available discipline
+      await dropdown.click();
+      await this.page.waitForTimeout(1000);
+      const registeredOption = this.page.locator('ng-dropdown-panel .ng-option .ng-option-label')
+        .filter({ hasText: otherDiscipline })
+        .first();
+      if (await registeredOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await registeredOption.click();
+      } else {
+        await this.page.locator('ng-dropdown-panel .ng-option').first().click();
+      }
     }
     await this.page.waitForTimeout(1000);
     console.log(`Selected other discipline: ${otherDiscipline}`);
@@ -531,16 +590,48 @@ export class OrderEntryPage extends BasePage {
   }
 
   async fillServiceDeclinedDetails(dateDeclined: string, reason: string): Promise<void> {
-    await this.page.locator(this.selectors.dateDeclinedField).click();
-    await this.page.waitForTimeout(500);
-    await DateHelper.selectDateFormatted(this.page, dateDeclined);
+    // Date Declined — try data-cy first, then check if already pre-populated
+    const dateField = this.page.locator(this.selectors.dateDeclinedField);
+    if (await dateField.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await dateField.click();
+      await this.page.waitForTimeout(500);
+      await DateHelper.selectDateFormatted(this.page, dateDeclined);
+    } else {
+      // Date may be auto-populated when Service Declined is checked
+      // Find the date input near the "Date Declined" label using ancestor traversal
+      const dateInput = this.page.locator(
+        `xpath=//*[text()[normalize-space()="Date Declined"]]/ancestor::*[.//input[@placeholder="MM/DD/YYYY"]][1]//input[@placeholder="MM/DD/YYYY"]`
+      ).first();
+      const dateValue = await dateInput.inputValue().catch(() => '');
+      if (dateValue) {
+        console.log(`Date Declined already populated: ${dateValue}`);
+      } else {
+        // Click the calendar button near Date Declined
+        const calBtn = this.page.locator(
+          `xpath=//*[text()[normalize-space()="Date Declined"]]/ancestor::*[.//button[contains(.,"calendar") or @aria-label="custom calendar"]][1]//button`
+        ).first();
+        await calBtn.click();
+        await this.page.waitForTimeout(500);
+        await DateHelper.selectDateFormatted(this.page, dateDeclined);
+      }
+    }
 
-    await this.page.locator(this.selectors.declinedReasonDropdown).click();
-    await this.page.waitForTimeout(1000);
-    await this.page.locator('[class*="ng-option"] span')
-      .filter({ hasText: reason })
-      .first()
-      .click();
+    // Declined Reason — try dropdown first, fallback to text input
+    const reasonDropdown = this.page.locator(this.selectors.declinedReasonDropdown);
+    if (await reasonDropdown.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await reasonDropdown.click();
+      await this.page.waitForTimeout(1000);
+      await this.page.locator('[class*="ng-option"] span')
+        .filter({ hasText: reason })
+        .first()
+        .click();
+    } else {
+      // Fallback: Declined Reason is a plain text input
+      const reasonInput = this.page.locator('ion-modal').getByText('Declined Reason').locator('..').locator('textarea, input[type="text"]').first();
+      if (await reasonInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await reasonInput.fill(reason);
+      }
+    }
     await this.page.waitForTimeout(500);
     console.log(`Filled service declined: date=${dateDeclined}, reason=${reason}`);
   }
@@ -743,14 +834,48 @@ export class OrderEntryPage extends BasePage {
   }
 
   async enterCustomStrength(strength: string): Promise<void> {
-    await this.page.locator(this.selectors.strengthInput).fill(strength);
-    await this.page.waitForTimeout(1000);
-    // Click "Other (custom strength)" option
-    await this.page.locator('[class*="ng-option"]')
-      .filter({ hasText: `Other (${strength})` })
-      .click();
-    await this.page.waitForTimeout(500);
-    console.log(`Entered custom strength: ${strength}`);
+    // Check for ng-select dropdown FIRST (non-compound medication form)
+    const ngSelectContainer = this.page.locator('[data-cy="select-strength"]');
+    const ngSelectInput = this.page.locator(this.selectors.strengthInput);
+
+    if (await ngSelectContainer.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // ng-select dropdown mode:
+      // Step 1: Type the custom strength into the combobox
+      await ngSelectInput.fill(strength);
+      await this.page.waitForTimeout(1000);
+
+      // Step 2: Click the "Other" tag option to register the custom strength
+      const otherOption = this.page.locator('[class*="ng-option"]')
+        .filter({ has: this.page.locator('.ng-tag-label', { hasText: 'Other' }) })
+        .first();
+      if (await otherOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await otherOption.click();
+        console.log('Clicked "Other" tag to register custom strength');
+      }
+      await this.page.waitForTimeout(1000);
+
+      // Step 3: Re-open the dropdown and select the now-available custom strength
+      await ngSelectContainer.click();
+      await this.page.waitForTimeout(1000);
+      const strengthOption = this.page.locator('[class*="ng-option"] .ng-option-label')
+        .filter({ hasText: strength })
+        .first();
+      if (await strengthOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await strengthOption.click();
+      } else {
+        await this.page.locator('[class*="ng-option"]').first().click();
+      }
+      await this.page.waitForTimeout(500);
+      console.log(`Selected custom strength from dropdown: ${strength}`);
+    } else {
+      // Plain textbox mode (e.g. compound medication form)
+      const plainTextbox = this.page.locator(
+        `xpath=//*[text()[normalize-space()="Strength"]]/ancestor::*[.//input[@placeholder="Please be specific"]][1]//input[@placeholder="Please be specific"]`
+      ).first();
+      await plainTextbox.fill(strength);
+      await this.page.waitForTimeout(500);
+      console.log(`Filled strength textbox: ${strength}`);
+    }
   }
 
   /**
@@ -934,6 +1059,10 @@ export class OrderEntryPage extends BasePage {
       }
     }
 
+    if (data.discontinueDate) {
+      await this.setDiscontinueDate(data.discontinueDate);
+    }
+
     if (data.hospicePays !== undefined) {
       await this.selectHospicePays(data.hospicePays);
       if (!data.hospicePays && data.reasonForNonCoverage) {
@@ -957,7 +1086,13 @@ export class OrderEntryPage extends BasePage {
   // ============================================
 
   async enableCompoundFreeText(): Promise<void> {
-    await this.page.locator(this.selectors.compoundFreeTextCheckbox).click();
+    const dataCyCheckbox = this.page.locator(this.selectors.compoundFreeTextCheckbox);
+    if (await dataCyCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await dataCyCheckbox.click();
+    } else {
+      // Fallback: checkbox next to "Compound/Free Text Medication" label
+      await this.page.getByText('Compound/Free Text Medication', { exact: true }).locator('..').getByRole('checkbox').click({ force: true });
+    }
     await this.page.waitForTimeout(1000);
     console.log('Enabled Compound/Free Text Medication');
   }
@@ -969,7 +1104,8 @@ export class OrderEntryPage extends BasePage {
   }
 
   async addIngredient(index: number, ingredient: string): Promise<void> {
-    if (index > 0) {
+    // 2 ingredient fields exist by default; only click ADD INGREDIENT for index >= 2
+    if (index >= 2) {
       await this.page.locator(this.selectors.addIngredientBtn).click();
       await this.page.waitForTimeout(500);
     }
@@ -993,13 +1129,24 @@ export class OrderEntryPage extends BasePage {
     for (let i = 0; i < data.ingredients.length; i++) {
       await this.addIngredient(i, data.ingredients[i]);
     }
-
+    if (data.customStrength) {
+      await this.enterCustomStrength(data.customStrength);
+    }
     if (data.dosage) await this.fillDosage(data.dosage);
     if (data.route) await this.selectRoute(data.route);
     if (data.frequency) await this.selectFrequency(data.frequency);
 
+    if (data.hospicePays !== undefined) {
+      await this.selectHospicePays(data.hospicePays);
+    }
+
     await this.selectOrderingProvider(data.role, data.orderingProvider);
     await this.selectApprovalType(data.approvalType);
+
+    // Verbal approval on medication orders requires Read Back and Verified
+    if (data.approvalType === 'Verbal') {
+      await this.clickReadBackVerified();
+    }
 
     await this.submitOrder();
     console.log('Compound medication order submitted\n');
@@ -1180,11 +1327,15 @@ export class OrderEntryPage extends BasePage {
   async uploadSignedOrder(filePaths: string[]): Promise<void> {
     await this.page.locator(this.selectors.uploadSignedOrderOption).click();
     await this.page.waitForTimeout(2000);
-    // await this.uploadDocument(filePaths);
-     const fileInput = this.page.locator(this.selectors.uploadsignedfileInput);
+
+    const fileInput = this.page.locator(this.selectors.uploadsignedfileInput);
     await fileInput.setInputFiles(filePaths);
-    await this.page.waitForTimeout(3000);
+    await this.page.waitForTimeout(2000);
     console.log(`Uploaded ${filePaths.length} document(s)`);
+
+    // Click Save button on the Upload Order Document dialog
+    await this.page.locator('button').filter({ hasText: 'Save' }).click();
+    await this.page.waitForTimeout(3000);
     console.log('Uploaded signed order document');
   }
 
@@ -1220,38 +1371,55 @@ export class OrderEntryPage extends BasePage {
   }
 
   async getHistoryText(rowIndex: number): Promise<string> {
-    // Try to get the history reason value (the actual content, not just the header)
-    const historyReason = this.page.locator(this.selectors.historyReason);
-    try {
-      await historyReason.waitFor({ state: 'visible', timeout: 5000 });
+    const allText: string[] = [];
 
-      // Expand "More" link if text is truncated by wrapped-text component
+    // Try history reason
+    const historyReason = this.page.locator(this.selectors.historyReason);
+    if (await historyReason.isVisible({ timeout: 5000 }).catch(() => false)) {
       const moreLink = historyReason.locator('a:has-text("More")');
       if (await moreLink.isVisible({ timeout: 1000 }).catch(() => false)) {
         await moreLink.click();
         await this.page.waitForTimeout(500);
       }
-
       const text = (await historyReason.textContent())?.trim() || '';
+      if (text && text !== '-') allText.push(text);
       console.log(`History reason text: ${text}`);
-      return text;
-    } catch {
-      // Fallback: try discontinue reason
-      const discReason = this.page.locator(this.selectors.discontinueReason);
-      if (await discReason.isVisible({ timeout: 3000 }).catch(() => false)) {
-        const moreLink = discReason.locator('a:has-text("More")');
-        if (await moreLink.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await moreLink.click();
-          await this.page.waitForTimeout(500);
-        }
-        const text = (await discReason.textContent())?.trim() || '';
-        console.log(`Discontinue reason text (fallback): ${text}`);
-        return text;
-      }
-
-      console.log('No history or discontinue reason found');
-      return '';
     }
+
+    // Try history action taken
+    const historyAction = this.page.locator(this.selectors.historyActionTaken);
+    if (await historyAction.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const moreLink = historyAction.locator('a:has-text("More")');
+      if (await moreLink.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await moreLink.click();
+        await this.page.waitForTimeout(500);
+      }
+      const text = (await historyAction.textContent())?.trim() || '';
+      if (text && text !== '-') allText.push(text);
+      console.log(`History action taken text: ${text}`);
+    }
+
+    if (allText.length > 0) return allText.join(' | ');
+
+    // Fallback: try discontinue reason
+    const discReason = this.page.locator(this.selectors.discontinueReason);
+    if (await discReason.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const moreLink = discReason.locator('a:has-text("More")');
+      if (await moreLink.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await moreLink.click();
+        await this.page.waitForTimeout(500);
+      }
+      const text = (await discReason.textContent())?.trim() || '';
+      console.log(`Discontinue reason text (fallback): ${text}`);
+      return text;
+    }
+
+    // Last fallback: get full expanded row text
+    const rows = this.page.locator(this.selectors.orderRow);
+    const rowParent = rows.nth(rowIndex).locator('xpath=..');
+    const fullText = (await rowParent.innerText().catch(() => '')) || '';
+    console.log('Using full expanded row text as fallback');
+    return fullText;
   }
 
   async getOrderRowCount(): Promise<number> {
@@ -1536,21 +1704,28 @@ export class OrderEntryPage extends BasePage {
   // ============================================
 
   async searchOrders(searchTerm: string): Promise<void> {
-    await this.page.locator(this.selectors.searchInput).fill(searchTerm);
+    const searchBar = this.page.locator('[data-cy="input-search-term-or-terms"] input.searchbar-input');
+    await searchBar.click();
+    await searchBar.clear();
+    await searchBar.fill(searchTerm);
+    await searchBar.press('Enter');
     await this.page.waitForTimeout(2000);
     console.log(`Searched orders: ${searchTerm}`);
   }
 
   async clearSearch(): Promise<void> {
-    await this.page.locator(this.selectors.searchInput).fill('');
-    await this.page.waitForTimeout(1000);
+    const searchBar = this.page.locator('[data-cy="input-search-term-or-terms"] input.searchbar-input');
+    await searchBar.click();
+    await searchBar.clear();
+    await searchBar.press('Enter');
+    await this.page.waitForTimeout(2000);
     console.log('Cleared search');
   }
 
   async filterByOrderType(orderType: string): Promise<void> {
     await this.page.locator(this.selectors.filterTypeDropdown).click();
     await this.page.waitForTimeout(1000);
-    await this.page.locator('[class*="ng-option"] span')
+    await this.page.locator('span.ng-option-label')
       .filter({ hasText: orderType })
       .click();
     await this.page.waitForTimeout(1000);
@@ -1560,15 +1735,42 @@ export class OrderEntryPage extends BasePage {
   async filterBySignedStatus(status: string): Promise<void> {
     await this.page.locator(this.selectors.filterSignedDropdown).click();
     await this.page.waitForTimeout(1000);
-    await this.page.locator('[class*="ng-option"] span')
+    await this.page.locator('span.ng-option-label')
       .filter({ hasText: status })
       .click();
     await this.page.waitForTimeout(1000);
     console.log(`Filtered by signed status: ${status}`);
   }
 
-  async sortByColumn(columnName: string): Promise<void> {
-    await this.page.locator(this.selectors.sortColumnHeader(columnName)).click();
+  async filterByHospiceCoverage(value: string): Promise<void> {
+    await this.page.locator(this.selectors.filterHospiceCoverageDropdown).click();
+    await this.page.waitForTimeout(1000);
+    await this.page.locator('span.ng-option-label')
+      .filter({ hasText: value })
+      .click();
+    await this.page.waitForTimeout(1000);
+    console.log(`Filtered by hospice coverage: ${value}`);
+  }
+
+  async applyFilters(): Promise<void> {
+    await this.page.locator(this.selectors.filterBtn).click();
+    await this.page.waitForTimeout(2000);
+    console.log('Applied filters');
+  }
+
+  async clearFilters(): Promise<void> {
+    await this.page.locator(this.selectors.clearFiltersBtn).click();
+    await this.page.waitForTimeout(2000);
+    console.log('Cleared filters');
+  }
+
+  async sortByColumn(columnName: string, headerText?: string): Promise<void> {
+    const locator = this.page.locator(this.selectors.sortColumnHeader(columnName));
+    if (headerText && await locator.count() > 1) {
+      await locator.filter({ hasText: headerText }).click();
+    } else {
+      await locator.click();
+    }
     await this.page.waitForTimeout(1000);
     console.log(`Sorted by column: ${columnName}`);
   }
@@ -1641,6 +1843,12 @@ export class OrderEntryPage extends BasePage {
       return (await classWarning.textContent()) || '';
     }
 
+    // Fallback: duplicate medication warning rendered as a plain <p> inside the modal
+    const duplicateWarning = this.page.locator('ion-modal p').filter({ hasText: 'same name as a previous order' });
+    if (await duplicateWarning.isVisible({ timeout: 2000 }).catch(() => false)) {
+      return (await duplicateWarning.textContent())?.replace(/^\*/, '').trim() || '';
+    }
+
     return '';
   }
 
@@ -1663,7 +1871,8 @@ export class OrderEntryPage extends BasePage {
     await row.waitFor({ state: 'visible', timeout: 10000 });
     const rowText = (await row.textContent()) || '';
     console.log(`Row ${rowIndex} text: ${rowText.substring(0, 120)}...`);
-    if (rowText.includes('e-signed')) return 'e-signed';
+    const rowLower = rowText.toLowerCase();
+    if (rowLower.includes('e-signed')) return 'e-signed';
     if (rowText.includes('Rejected')) return 'Rejected';
     if (rowText.includes('Yes')) return 'Yes';
     if (rowText.includes('No')) return 'No';
@@ -1681,7 +1890,13 @@ export class OrderEntryPage extends BasePage {
   }
 
   async isProceedEnabled(): Promise<boolean> {
-    const btn = this.page.locator(this.selectors.proceedBtn);
+    // Try data-cy first, fallback to role-based locator
+    const dataCyBtn = this.page.locator(this.selectors.proceedBtn);
+    const roleBtn = this.page.getByRole('button', { name: 'Proceed' });
+
+    const btn = await dataCyBtn.isVisible({ timeout: 2000 }).catch(() => false)
+      ? dataCyBtn
+      : roleBtn;
     const isDisabled = await btn.isDisabled();
     return !isDisabled;
   }

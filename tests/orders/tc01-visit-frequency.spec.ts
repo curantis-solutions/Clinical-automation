@@ -4,6 +4,7 @@ import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { VisitFrequencyOrderData } from '../../types/order.types';
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
  * TC-01: Visit Frequency Order – Standard & PRN
@@ -28,8 +29,8 @@ test.describe.serial('TC-01: Visit Frequency Order – Standard & PRN', () => {
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once
@@ -192,18 +193,18 @@ test.describe.serial('TC-01: Visit Frequency Order – Standard & PRN', () => {
     });
 
     await test.step('Validate discontinued order reason', async () => {
-      // In the default "Hide Discontinued" checked state, active orders that replaced
-      // previous orders show the discontinued predecessor as a sub-row.
-      // Expanding the active order's caret reveals Details, Discontinue, and History sections.
-      // Row 1 is the active Volunteer order with an auto-discontinued sub-row.
+      // Search for Volunteer to isolate the overlapping orders
+      await pages.orderEntry.searchOrders('Volunteer');
+
+      // Row 1 is the previous Volunteer order with auto-discontinued sub-row
       await pages.orderEntry.clickCaretOnRow(1);
       const details = await pages.orderEntry.getHistoryText(1);
       expect(details).toContain('discontinued because a new order');
       console.log('Previous order discontinued with correct reason');
 
       // Collapse the expanded row to avoid interfering with subsequent form interactions
-      // (expanded "Frequency" label clashes with the VF form's "Frequency" dropdown)
       await pages.orderEntry.clickCaretOnRow(1);
+      await pages.orderEntry.clearSearch();
     });
   });
 

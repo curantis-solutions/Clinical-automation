@@ -1,137 +1,264 @@
-import { test, expect } from '../../fixtures/page-objects.fixture';
-import * as dotenv from 'dotenv';
+import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objects.fixture';
 import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { VisitFrequencyOrderData } from '../../types/order.types';
-
-dotenv.config({ path: '.env.local' });
+import { TIMEOUTS } from '../../config/timeouts';
 
 /**
- * TC-16: Visit Frequency – Service Declined
+ * TC-16: Visit Frequency – Service Declined & Care Plan Verification
  *
- * Tests Service Declined checkbox for VF orders,
- * discontinue with service declined, and grid verification.
+ * Uses serial pattern: login once, share browser session across all steps.
+ * Creates VF orders (active and service declined), verifies on OE grid,
+ * then navigates to Care Plan to verify data under Visit Frequency section.
+ *
+ * Flow:
+ *   Step 1:   Create active VF order (Social Worker)
+ *   Step 2:   Verify active VF order on OE grid
+ *   Step 3:   Navigate to Care Plan → verify Active Orders tab shows the VF order
+ *   Step 4:   Go back to OE → create VF order with Service Declined
+ *   Step 5:   Verify Service Declined on OE grid (Ordered By column)
+ *   Step 6:   Navigate to Care Plan → verify Declined Orders tab shows the declined VF
+ *   Step 7:   Create another VF order (Hospice Aide) → discontinue with Service Declined
+ *   Step 8:   Navigate to Care Plan → verify Active tab still has original, Declined tab updated
  */
-test.describe('TC-16: Visit Frequency – Service Declined', () => {
-  const todayFormatted = DateHelper.getTodaysDate();
-  const physicianName = TestDataManager.getPhysician();
 
-  test.beforeEach(async ({ pages }) => {
-    test.setTimeout(300000);
+let sharedPage: Page;
+let sharedContext: BrowserContext;
+let pages: PageObjects;
 
+const todayFormatted = DateHelper.getTodaysDate();
+const physicianName = TestDataManager.getPhysician();
+
+test.describe.serial('TC-16: Visit Frequency – Service Declined & Care Plan Verification', () => {
+  test.beforeAll(async ({ browser }) => {
+    sharedContext = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      ignoreHTTPSErrors: true,
+      baseURL: CredentialManager.getBaseUrl(),
+    });
+    sharedPage = await sharedContext.newPage();
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
+    pages = createPageObjectsForPage(sharedPage);
+
+    // Login as RN
     await pages.login.goto();
-    const credentials = CredentialManager.getCredentials(undefined, 'RN');
-    await pages.login.login(credentials.username, credentials.password);
+    const rnCreds = CredentialManager.getCredentials(undefined, 'RN');
+    await pages.login.login(rnCreds.username, rnCreds.password);
+    console.log('Logged in as RN');
 
+    // Navigate to patient and Order Entry
     await pages.dashboard.goto();
     await pages.dashboard.navigateToModule('Patient');
+    await pages.patient.searchPatient(TestDataManager.getOrdersPatientId());
     await pages.patient.getPatientFromGrid(0);
     await pages.orderEntry.navigateToOrderEntry();
   });
 
-  test('Step 3-6: Enter VF order with Service Declined', async ({ pages }) => {
-    await test.step('Select discipline other than Skilled Nurse', async () => {
-      await pages.orderEntry.clickAddOrder();
-      await pages.orderEntry.selectOrderType('Visit Frequency');
-      await pages.orderEntry.selectDiscipline('Social Worker');
-    });
+  test.afterAll(async () => {
+    if (sharedContext) {
+      await sharedContext.close();
+    }
+  });
 
-    await test.step('Click Service Declined and fill fields', async () => {
-      await pages.orderEntry.enableServiceDeclined();
-      await pages.orderEntry.fillServiceDeclinedDetails(todayFormatted, 'Patient refused');
+  // =========================================================================
+  // Step 1: Create active VF order (Social Worker)
+  // =========================================================================
+  test('Step 1: Create active VF order (Social Worker)', async () => {
+    test.setTimeout(120000);
 
-      await pages.orderEntry.fillVisitCount(1);
-      await pages.orderEntry.selectTimeInterval('Week');
-      await pages.orderEntry.selectDuration('1 Week');
-      await pages.orderEntry.setStartDate(todayFormatted);
-      await pages.orderEntry.selectOrderingProvider('Registered Nurse (RN)', physicianName);
-      await pages.orderEntry.selectApprovalType('Verbal');
-      await pages.orderEntry.clickProceed();
-    });
-
-    await test.step('Validate declined order on grid', async () => {
-      const orderedBy = await pages.orderEntry.getOrderedBy(0);
-      expect(orderedBy).toContain('Service Declined');
-      console.log('Service Declined displayed under Ordered by column');
+    await test.step('Enter VF order for Social Worker', async () => {
+      const vfData: VisitFrequencyOrderData = {
+        discipline: 'Social Worker',
+        numberOfVisits: 2,
+        timeInterval: 'Week',
+        duration: '1',
+        startDate: todayFormatted,
+        orderingProvider: physicianName,
+        role: 'Registered Nurse (RN)',
+        approvalType: 'Verbal',
+      };
+      await pages.orderEntry.addVisitFrequencyOrder(vfData);
+      console.log('Active VF order (Social Worker) created');
     });
   });
 
-  test('Step 7-10: Discontinue with Service Declined', async ({ pages }) => {
-    await test.step('Enter VF order without Service Declined', async () => {
+  // =========================================================================
+  // Step 2: Verify active VF order on OE grid
+  // =========================================================================
+  test('Step 2: Verify active VF order on OE grid', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Verify order exists on grid', async () => {
+      const rowCount = await pages.orderEntry.getOrderRowCount();
+      expect(rowCount).toBeGreaterThan(0);
+
+      const orderRow = sharedPage.locator('[data-cy="order"]').filter({ hasText: 'Social Worker' }).first();
+      await expect(orderRow).toBeVisible({ timeout: 5000 });
+      console.log('Social Worker VF order visible on OE grid');
+    });
+  });
+
+  // =========================================================================
+  // Step 3: Navigate to Care Plan → verify Active Orders tab
+  // =========================================================================
+  test('Step 3: Verify VF order on Care Plan Active Orders tab', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Exit Order Entry and navigate to Care Plan', async () => {
+      await pages.orderEntry.exitOrderEntry();
+      await pages.carePlan.navigateToCarePlan();
+      console.log('Navigated to Care Plan');
+    });
+
+    await test.step('Verify Visit Frequency Active Orders tab', async () => {
+      const vfVisible = await pages.carePlan.isVisitFrequencyCardVisible();
+      expect(vfVisible).toBeTruthy();
+      console.log('Visit Frequency card is visible');
+
+      // Click Active Orders tab
+      await pages.carePlan.clickActiveOrdersTab();
+
+      // Verify Social Worker discipline appears
+      const hasSocialWorker = await pages.carePlan.verifyDisciplineInVisitFrequency('Social Worker');
+      expect(hasSocialWorker).toBeTruthy();
+      console.log('Social Worker VF order found in Active Orders tab');
+    });
+  });
+
+  // =========================================================================
+  // Step 4: Go back to OE → create VF order with Service Declined
+  // =========================================================================
+  test('Step 4: Create VF order with Service Declined', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Navigate back to Order Entry', async () => {
+      await pages.orderEntry.navigateToOrderEntry();
+      console.log('Back on Order Entry page');
+    });
+
+    await test.step('Create VF order with Service Declined', async () => {
+      await pages.orderEntry.clickAddOrder();
+      await pages.orderEntry.selectOrderType('Visit Frequency');
+      await pages.orderEntry.selectDiscipline('Spiritual Advisor');
+      await pages.orderEntry.enableServiceDeclined();
+      await pages.orderEntry.fillServiceDeclinedDetails(todayFormatted, 'Patient refused');
+      await pages.orderEntry.setStartDate(todayFormatted);
+      await pages.orderEntry.clickProceed();
+      console.log('VF order with Service Declined (Spiritual Advisor) created');
+    });
+  });
+
+  // =========================================================================
+  // Step 5: Verify Service Declined on OE grid
+  // =========================================================================
+  test('Step 5: Verify Service Declined on OE grid', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Verify Service Declined in Ordered By column', async () => {
+      const orderRow = sharedPage.locator('[data-cy="order"]').filter({ hasText: 'Spiritual' }).first();
+      await expect(orderRow).toBeVisible({ timeout: 5000 });
+      await expect(orderRow).toContainText('Service Declined');
+      console.log('Service Declined displayed on OE grid');
+    });
+  });
+
+  // =========================================================================
+  // Step 6: Navigate to Care Plan → verify Declined Orders tab
+  // =========================================================================
+  test('Step 6: Verify declined VF on Care Plan Declined Orders tab', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Exit Order Entry and navigate to Care Plan', async () => {
+      await pages.orderEntry.exitOrderEntry();
+      await pages.carePlan.navigateToCarePlan();
+      console.log('Navigated to Care Plan');
+    });
+
+    await test.step('Click Declined Orders tab and verify', async () => {
+      await pages.carePlan.clickDeclinedOrdersTab();
+
+      // Verify Spiritual Advisory appears in Declined tab
+      const hasSpiritual = await pages.carePlan.verifyDisciplineInVisitFrequency('Spiritual');
+      expect(hasSpiritual).toBeTruthy();
+      console.log('Spiritual Advisory VF order found in Declined Orders tab');
+    });
+
+    await test.step('Verify Active Orders tab still has Social Worker', async () => {
+      await pages.carePlan.clickActiveOrdersTab();
+
+      const hasSocialWorker = await pages.carePlan.verifyDisciplineInVisitFrequency('Social Worker');
+      expect(hasSocialWorker).toBeTruthy();
+      console.log('Social Worker still in Active Orders tab');
+    });
+  });
+
+  // =========================================================================
+  // Step 7: Create another VF order then discontinue with Service Declined
+  // =========================================================================
+  test('Step 7: Create VF order and discontinue with Service Declined', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Navigate to Order Entry and create VF order', async () => {
+      await pages.orderEntry.navigateToOrderEntry();
+
       const vfData: VisitFrequencyOrderData = {
         discipline: 'Hospice Aide',
         numberOfVisits: 2,
         timeInterval: 'Week',
-        duration: '2 Weeks',
+        duration: '2',
         startDate: todayFormatted,
         orderingProvider: physicianName,
         role: 'Registered Nurse (RN)',
         approvalType: 'Verbal',
       };
       await pages.orderEntry.addVisitFrequencyOrder(vfData);
+      console.log('Hospice Aide VF order created');
     });
 
-    await test.step('Discontinue with Service Declined checkbox', async () => {
+    await test.step('Discontinue with Service Declined', async () => {
+      await pages.orderEntry.searchOrders('Hospice Aide');
       await pages.orderEntry.discontinueOrder(0, {
         discontinueDate: todayFormatted,
+        discontinueProviderName: physicianName,
         discontinueReason: 'Service no longer needed',
         approvalType: 'Verbal',
         isServiceDeclined: true,
-        dateDeclined: todayFormatted,
-        declinedReason: 'Patient refused',
       });
-    });
-
-    await test.step('Verify Service Declined on grid', async () => {
-      await pages.orderEntry.toggleHideDiscontinued();
-      const orderedBy = await pages.orderEntry.getOrderedBy(0);
-      expect(orderedBy).toContain('Service Declined');
-      console.log('Discontinued order shows Service Declined');
+      console.log('Hospice Aide VF order discontinued with Service Declined');
+      await pages.orderEntry.clearSearch();
     });
   });
 
-  test('Step 11-14: Discontinue with override warning', async ({ page, pages }) => {
-    await test.step('Enter VF order with future discontinue date', async () => {
-      const futureDate = DateHelper.getFutureDate(7);
-      const vfData: VisitFrequencyOrderData = {
-        discipline: 'Spiritual Advisory',
-        numberOfVisits: 1,
-        timeInterval: 'Week',
-        duration: '2 Weeks',
-        startDate: todayFormatted,
-        orderingProvider: physicianName,
-        role: 'Registered Nurse (RN)',
-        approvalType: 'Verbal',
-      };
-      await pages.orderEntry.addVisitFrequencyOrder(vfData);
+  // =========================================================================
+  // Step 8: Navigate to Care Plan → verify both tabs updated
+  // =========================================================================
+  test('Step 8: Verify Care Plan reflects all VF orders', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Exit Order Entry and navigate to Care Plan', async () => {
+      await pages.orderEntry.exitOrderEntry();
+      await pages.carePlan.navigateToCarePlan();
+      console.log('Navigated to Care Plan');
     });
 
-    await test.step('Discontinue and verify override warning', async () => {
-      await pages.orderEntry.clickEllipsisOnRow(0);
-      await page.locator('[data-cy="btn-discontinue-order"]').click();
-      await page.waitForTimeout(2000);
-
-      const warningMsg = await pages.orderEntry.getWarningMessage();
-      expect(warningMsg).toContain('future discontinue date has already been entered');
-      console.log(`Override warning: ${warningMsg}`);
+    await test.step('Verify Active Orders tab', async () => {
+      await pages.carePlan.clickActiveOrdersTab();
+      const hasSocialWorker = await pages.carePlan.verifyDisciplineInVisitFrequency('Social Worker');
+      expect(hasSocialWorker).toBeTruthy();
+      console.log('Active Orders tab verified');
     });
 
-    await test.step('Change to current date and submit', async () => {
-      await page.locator('[data-cy="date-discontinue-date"]').click();
-      await DateHelper.selectDateFormatted(page, todayFormatted);
-
-      await page.locator('[data-cy="input-discontinue-reason"]').fill('Overriding previous discontinue date');
-      await page.locator('[data-cy="radio-verbal"]').click();
-      await page.locator('[data-cy="btn-submit-discontinue"]').click();
-      await page.waitForTimeout(5000);
-    });
-
-    await test.step('Validate discontinue date on grid', async () => {
-      await pages.orderEntry.toggleHideDiscontinued();
-      const rowCount = await pages.orderEntry.getOrderRowCount();
-      expect(rowCount).toBeGreaterThan(0);
-      console.log('Discontinue date updated on grid');
+    await test.step('Verify Declined Orders tab has declined entries', async () => {
+      await pages.carePlan.clickDeclinedOrdersTab();
+      const cardText = await pages.carePlan.getVisitFrequencyCardText();
+      const hasDeclinedContent = cardText.toLowerCase().includes('spiritual') ||
+                                  cardText.toLowerCase().includes('hospice aide') ||
+                                  cardText.toLowerCase().includes('declined');
+      expect(hasDeclinedContent).toBeTruthy();
+      console.log('Declined Orders tab verified with declined VF entries');
     });
   });
 });

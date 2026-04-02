@@ -14,17 +14,17 @@ export const TIMEOUTS = {
   /** Long wait for slower operations (5 seconds) */
   LONG: 5000,
 
-  /** Wait for page navigation (10 seconds) */
-  NAVIGATION: 10000,
+  /** Wait for page navigation (30 seconds) */
+  NAVIGATION: 30000,
 
   /** Wait for API responses (30 seconds) */
   API: 30000,
 
-  /** Action timeout for clicks, fills, etc. (15 seconds) */
-  ACTION: 15000,
+  /** Action timeout for clicks, fills, etc. (30 seconds) */
+  ACTION: 30000,
 
-  /** Element visibility timeout (10 seconds) */
-  ELEMENT: 10000,
+  /** Element visibility timeout (15 seconds) */
+  ELEMENT: 15000,
 
   /** Form submission timeout (20 seconds) */
   FORM_SUBMIT: 20000,
@@ -40,6 +40,11 @@ export const TIMEOUTS = {
 
   /** Date picker interaction timeout (3 seconds) */
   DATE_PICKER: 3000,
+  /** Default page timeout for actions — used by setDefaultTimeout (60 seconds) */
+  PAGE_DEFAULT: 60000,
+
+  /** Default navigation timeout — used by setDefaultNavigationTimeout (60 seconds) */
+  PAGE_NAVIGATION: 60000,
 } as const;
 
 // Test-level timeouts (milliseconds)

@@ -4,7 +4,7 @@ import { CredentialManager } from '../../utils/credential-manager';
 import { TestDataManager } from '../../utils/test-data-manager';
 import { DateHelper } from '../../utils/date-helper';
 import { NonMedicationOrderData, NonMedicationOrderType } from '../../types/order.types';
-import { testData } from '@config/test-data';
+import { TIMEOUTS } from '../../config/timeouts';
 /**
  * TC-02: Non-Medication Orders – DME, Other, Supplies, Treatment
  *
@@ -18,7 +18,7 @@ let sharedContext: BrowserContext;
 let pages: PageObjects;
 
 const todayFormatted = DateHelper.getTodaysDate();
-const physicianName = testData.prod.cch.physician; 
+const physicianName = TestDataManager.getPhysician();
 test.describe.serial('TC-02: Non-Medication Orders – DME, Other, Supplies, Treatment', () => {
   test.beforeAll(async ({ browser }) => {
     sharedContext = await browser.newContext({
@@ -27,8 +27,8 @@ test.describe.serial('TC-02: Non-Medication Orders – DME, Other, Supplies, Tre
       baseURL: CredentialManager.getBaseUrl(),
     });
     sharedPage = await sharedContext.newPage();
-    sharedPage.setDefaultTimeout(30000);
-    sharedPage.setDefaultNavigationTimeout(30000);
+    sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
+    sharedPage.setDefaultNavigationTimeout(TIMEOUTS.PAGE_NAVIGATION);
     pages = createPageObjectsForPage(sharedPage);
 
     // Login once
