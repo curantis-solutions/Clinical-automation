@@ -182,6 +182,24 @@ export abstract class BasePage {
   }
 
   /**
+   * Dismiss the "File downloaded successfully" dialog if present.
+   * The app shows this after batch/claim downloads — it blocks further interaction.
+   */
+  protected async dismissDownloadDialog(): Promise<void> {
+    const dialog = this.page.getByRole('dialog', { name: 'File downloaded successfully' });
+    if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Try clicking any button in the dialog, or press Escape to dismiss
+      const btn = dialog.getByRole('button');
+      if (await btn.count() > 0) {
+        await btn.first().click();
+      } else {
+        await this.page.keyboard.press('Escape');
+      }
+      await this.page.waitForTimeout(500);
+    }
+  }
+
+  /**
    * Wait for a grid to stabilize by polling row count until it stops changing.
    * Shared across all billing page objects (Claims, Batch, AR).
    * @param rowCountSelector - CSS selector that matches one element per row

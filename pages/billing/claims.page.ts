@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import { TIMEOUTS } from '../../config/timeouts';
-import { NoticeExpectedData, NoticeRowData } from '../../types/billing.types';
+import { NoticeExpectedData, NoticeRowData, NonCoveredDetail } from '../../types/billing.types';
 import { PdfHelper } from '../../utils/pdf-helper';
 import { selectDateFromPicker } from '../../utils/form-helpers';
 
@@ -59,6 +59,14 @@ export class ClaimsPage extends BasePage {
 
     // === REVIEW tab errors ===
     errorMessage: (i: number) => `[data-cy="label-error-message-${i}"]`,
+
+    // === Occurrence Code 77 / Non-Covered Details ===
+    unfundedDaysIcon: (i: number) => `[data-cy="btn-show-modal-days-since-admit-${i}"]`,
+    nonCoveredDetailsTab: '[data-cy="label-reason-for-nonCoveredDetails"]',
+    nonCoveredReason: (i: number) => `[data-cy="label-claimUF.reason-${i}"]`,
+    nonCoveredDateRange: (i: number) => `[data-cy="label-change.startEndDate-${i}"]`,
+    occurrencePopover: 'div.statuspopover',
+    popoverBackdrop: 'ion-popover ion-backdrop',
 
     // === Generate Claim Modal ===
     modalPostDateInput: 'ion-modal #date-value',
@@ -231,7 +239,7 @@ export class ClaimsPage extends BasePage {
 
   /**
    * Assert Notice (81A) grid field values against expected data.
-   * Reads the row, compares each field, returns actual data.
+   * Composite assert-and-return: reads the row, compares each field, throws on mismatch, returns actual data.
    * Does NOT verify UB04 link or RLIS — call those separately.
    */
   async assertNoticeGridFields(rowIndex: number, expected: NoticeExpectedData): Promise<NoticeRowData> {
@@ -274,7 +282,7 @@ export class ClaimsPage extends BasePage {
   }
 
   /**
-   * Full composite: grid fields + UB04 + RLIS for backward compatibility.
+   * Composite assert-and-return: verifies all grid fields + UB04 link + RLIS absence, returns actual data.
    */
   async assertNoticeDetails(rowIndex: number, expected: NoticeExpectedData): Promise<NoticeRowData> {
     const actual = await this.assertNoticeGridFields(rowIndex, expected);
@@ -390,16 +398,20 @@ export class ClaimsPage extends BasePage {
 
   /**
    * Complete the "Batch to be submitted" modal after clicking Generate Claim.
-   * Opens datepicker, selects today's date, clicks Submit Batch, closes success dialog.
+   * Opens datepicker, selects the given date (defaults to today), clicks Submit Batch, closes success dialog.
+   * @param postDate - MM/DD/YYYY format. Defaults to today's date.
    */
-  async completeGenerateClaimModal(): Promise<void> {
+  async completeGenerateClaimModal(postDate?: string): Promise<void> {
     const postDateInput = this.page.locator(this.selectors.modalPostDateInput);
     await postDateInput.waitFor({ state: 'visible', timeout: 10_000 });
     await postDateInput.click();
     await this.page.waitForTimeout(500);
 
-    const today = new Date();
-    const postDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+    if (!postDate) {
+      const today = new Date();
+      postDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+    }
+    console.log(`Selecting date: ${postDate}`);
     await selectDateFromPicker(this.page, postDate);
     await this.page.waitForTimeout(500);
 
@@ -416,9 +428,66 @@ export class ClaimsPage extends BasePage {
   // ── PDF Download ──
 
   async downloadClaimPdf(rowIndex: number): Promise<string> {
-    return await PdfHelper.downloadAndExtractText(
+    const text = await PdfHelper.downloadAndExtractText(
       this.page,
       this.selectors.downloadButton(rowIndex)
     );
+    await this.dismissDownloadDialog();
+    return text;
+  }
+
+  // ── Occurrence Code 77 / Non-Covered Details ──
+
+  /**
+   * Check if the "Unfunded Days" info icon is visible for a claim row.
+   * This icon indicates occurrence code 77 (non-covered days).
+   */
+  async isUnfundedDaysIconVisible(rowIndex: number): Promise<boolean> {
+    return await this.page.locator(this.selectors.unfundedDaysIcon(rowIndex)).isVisible();
+  }
+
+  /**
+   * Click the "Unfunded Days" info icon and read the occurrence popover text.
+   * Dismisses the popover after reading. Returns the popover message.
+   */
+  async getOccurrencePopoverText(rowIndex: number): Promise<string> {
+    await this.page.locator(this.selectors.unfundedDaysIcon(rowIndex)).click();
+    const popover = this.page.locator(this.selectors.occurrencePopover);
+    await popover.waitFor({ state: 'visible', timeout: 5_000 });
+    const text = (await popover.textContent()) || '';
+
+    // Dismiss popover — press Escape then wait for it to disappear
+    await this.page.keyboard.press('Escape');
+    await this.page.waitForTimeout(500);
+
+    // If popover is still visible, force-click the backdrop as fallback
+    const stillVisible = await this.page.locator('ion-popover').isVisible();
+    if (stillVisible) {
+      await this.page.locator(this.selectors.popoverBackdrop).click({ force: true });
+      await this.page.waitForTimeout(500);
+    }
+
+    return text.trim();
+  }
+
+  /**
+   * Read Non-Covered Details from the expanded claim detail tab.
+   * The claim row must already be expanded. Switches to the Non-Covered Details tab,
+   * reads the reason and combined date range, and parses into separate start/end dates.
+   */
+  async readNonCoveredDetails(rowIndex: number): Promise<NonCoveredDetail> {
+    await this.page.locator(this.selectors.nonCoveredDetailsTab).click();
+    await this.page.waitForTimeout(500);
+
+    const reason = (await this.page.locator(this.selectors.nonCoveredReason(rowIndex)).textContent()) || '';
+    const dateRange = (await this.page.locator(this.selectors.nonCoveredDateRange(rowIndex)).textContent()) || '';
+
+    // Parse combined "MM/DD/YYYY - MM/DD/YYYY" into separate dates
+    const parts = dateRange.trim().split(' - ');
+    return {
+      reason: reason.trim(),
+      startDate: parts[0]?.trim() || '',
+      endDate: parts[1]?.trim() || '',
+    };
   }
 }

@@ -4,7 +4,7 @@
  */
 
 /** Bill types for hospice claims */
-export type BillType = '811' | '812' | '813' | '814' | '81A';
+export type BillType = '811' | '812' | '813' | '814' | '817' | '818' | '81A';
 
 /** Claim document type — Claims use PDF, Notices use UB04 */
 export type ClaimDocumentType = 'PDF' | 'UB04';
@@ -64,6 +64,16 @@ export interface NoticeRowData {
   siaAmount: string;
   claimTotalAmount: string;
   conditionCode: string;
+}
+
+/** Non-Covered Details data from expanded claim detail */
+export interface NonCoveredDetail {
+  /** Reason for non-covered days — "Late Certification" or "Late Notice" */
+  reason: string;
+  /** Non-covered start date (MM/DD/YYYY) */
+  startDate: string;
+  /** Non-covered end date (MM/DD/YYYY) */
+  endDate: string;
 }
 
 /** Row data from the 837 Batch Management grid */
