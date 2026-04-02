@@ -293,6 +293,22 @@ export class DateHelper {
   }
 
   /**
+   * Calculate days since admit date relative to today.
+   * Formula: (today - admitDate) in days. The app displays this as the
+   * "Days Since Admit" column in billing grids.
+   * @param admitDate - Admit date in MM/DD/YYYY format
+   * @returns Number of days since admission
+   */
+  static calculateDaysSinceAdmit(admitDate: string): number {
+    const admit = this.parseDate(admitDate);
+    const today = new Date();
+    // Zero out time to avoid timezone/DST offsets
+    const admitMs = Date.UTC(admit.getFullYear(), admit.getMonth(), admit.getDate());
+    const todayMs = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.round((todayMs - admitMs) / (1000 * 60 * 60 * 24));
+  }
+
+  /**
    * Get the difference in days between two dates
    * @param date1 - First date string in MM/DD/YYYY format
    * @param date2 - Second date string in MM/DD/YYYY format
@@ -327,6 +343,51 @@ export class DateHelper {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date > today;
+  }
+
+  /**
+   * Get a specific day of a month relative to the current month.
+   * Single utility for all relative-month date needs.
+   *
+   * @param day - 'first', 'last', or a specific day number (1-31)
+   * @param monthsAgo - Number of months back (default 1 = previous month, 0 = current)
+   * @returns Date string in MM/DD/YYYY format
+   *
+   * @example
+   * // If today is 03/30/2026:
+   *
+   * // Previous month (default monthsAgo = 1)
+   * DateHelper.getDateOfMonth()             // '02/01/2026' — 1st of prev month
+   * DateHelper.getDateOfMonth('first')      // '02/01/2026' — same as above
+   * DateHelper.getDateOfMonth('last')       // '02/28/2026' — last day of prev month
+   * DateHelper.getDateOfMonth(15)           // '02/15/2026' — 15th of prev month
+   *
+   * // Current month (monthsAgo = 0)
+   * DateHelper.getDateOfMonth('first', 0)   // '03/01/2026' — 1st of current month
+   * DateHelper.getDateOfMonth('last', 0)    // '03/31/2026' — last day of current month
+   * DateHelper.getDateOfMonth(10, 0)        // '03/10/2026' — 10th of current month
+   *
+   * // Older months
+   * DateHelper.getDateOfMonth('first', 2)   // '01/01/2026' — 1st of 2 months ago
+   * DateHelper.getDateOfMonth('last', 3)    // '12/31/2025' — last day of 3 months ago
+   *
+   * // Common test patterns
+   * const admitDate = DateHelper.getDateOfMonth();           // backdated admit (1st of prev month)
+   * const serviceEnd = DateHelper.getDateOfMonth('last');    // end of service period
+   * const midMonth = DateHelper.getDateOfMonth(15, 0);      // mid-current-month discharge
+   */
+  static getDateOfMonth(day: 'first' | 'last' | number = 'first', monthsAgo = 1): string {
+    const now = new Date();
+    const targetMonth = now.getMonth() - monthsAgo;
+    const targetYear = now.getFullYear();
+
+    if (day === 'first') {
+      return this.formatDateToMMDDYYYY(new Date(targetYear, targetMonth, 1));
+    }
+    if (day === 'last') {
+      return this.formatDateToMMDDYYYY(new Date(targetYear, targetMonth + 1, 0));
+    }
+    return this.formatDateToMMDDYYYY(new Date(targetYear, targetMonth, day));
   }
 
   /**

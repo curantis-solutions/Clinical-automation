@@ -69,6 +69,7 @@ export class BenefitsAddPage extends BasePage {
     previousHospiceStartDate: '[data-cy="date-previous-hospice-start-date"]',
     previousHospiceDischargeDate: '[data-cy="date-previous-hospice-discharge-date"]',
     dateOfFinalBill: '[data-cy="date-off-final-bill"]',
+    noticeAcceptedDate: '[data-cy="notice-accepted-date"]',
 
     // === Room And Board Specific Fields ===
     billingEffectiveDate: (index: number) => `[data-cy="date-billing-effective-date-${index}"]`,
@@ -122,6 +123,42 @@ export class BenefitsAddPage extends BasePage {
   // ============================================
   // Navigation Methods
   // ============================================
+
+  /**
+   * Read the payer name from an existing benefit card on the Benefits page,
+   * matching by payer level (e.g., "Primary", "Secondary", "Room And Board").
+   *
+   * Each benefit card (btn-show-details-benefit-{i}) has ion-labels in order:
+   * [PayerLevel, PayerType, PayerName, MedicareNumber, EffectiveDate, ExpiredDate, Verified]
+   *
+   * This method iterates all cards and finds the one whose first label matches
+   * the requested payer level — safe regardless of card count or order.
+   *
+   * @param payerLevel - The payer level to match (default "Primary")
+   * @returns The payer name as displayed (e.g., "DEV Medicare A")
+   */
+  async getPayerNameByLevel(payerLevel: string = 'Primary'): Promise<string> {
+    // Wait for at least one benefit card to appear (benefits page has a loading spinner)
+    await this.page.locator('[data-cy^="btn-show-details-benefit-"]').first().waitFor({ state: 'visible', timeout: 15000 });
+
+    const cards = this.page.locator('[data-cy^="btn-show-details-benefit-"]');
+    const count = await cards.count();
+
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const labels = card.locator('ion-label');
+      const labelCount = await labels.count();
+      if (labelCount < 3) continue;
+
+      const level = await labels.nth(0).textContent();
+      if (level?.trim() === payerLevel) {
+        const payerName = await labels.nth(2).textContent();
+        return payerName?.trim() || '';
+      }
+    }
+
+    throw new Error(`No benefit card found with payer level "${payerLevel}"`);
+  }
 
   /**
    * Navigate to Benefits section from patient profile
@@ -415,21 +452,19 @@ export class BenefitsAddPage extends BasePage {
     await stateClickCover.scrollIntoViewIfNeeded();
     await this.page.waitForTimeout(500);
 
-    // Click the state dropdown to open it
+    // Click the state dropdown to open the popover
     await stateClickCover.click({ force: true });
-    await this.page.waitForTimeout(1000);
 
-    // Type the state to filter and focus the dropdown
-    await this.page.keyboard.type(state);
+    // Wait for the popover search input to appear and fill it
+    const popoverInput = this.page.locator('ion-popover input');
+    await popoverInput.waitFor({ state: 'visible', timeout: 5000 });
+    await popoverInput.fill(state);
     await this.page.waitForTimeout(500);
 
-    // Press Enter to select the filtered/highlighted option
-    await this.page.keyboard.press('Enter');
-    console.log(`Pressed Enter to select state: ${state}`);
-    await this.page.waitForTimeout(500);
-
-    // Dismiss any remaining popover by pressing Escape
-    await this.page.keyboard.press('Escape');
+    // Click the matching option in the popover list
+    const option = this.page.locator('ion-popover').getByText(state, { exact: true });
+    await option.click();
+    console.log(`Selected state: ${state}`);
     await this.page.waitForTimeout(300);
   }
 

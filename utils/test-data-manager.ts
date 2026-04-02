@@ -17,6 +17,7 @@ export class TestDataManager {
   private static currentTenant: string | null = null;
   private static _isPhysician: boolean = false;
   private static _currentRole: string | null = null;
+  private static _resolvedPhysician: string | null = null;
 
   /**
    * Set the login role (MD, RN, SW, etc.) — also updates isPhysician flag
@@ -105,7 +106,7 @@ export class TestDataManager {
    * Get physician name for search (short config value that works in all dropdowns)
    */
   static getPhysician(): string {
-    return this.getData().physician;
+    return this._resolvedPhysician || this.getData().physician;
   }
   static getOtherPhysician(): string | undefined {
     return this.getData().otherPhysician;
@@ -233,18 +234,23 @@ export class TestDataManager {
   }
 
   static interceptPhysicianName(page: Page): Promise<string> {
-    const physician = this.getData().physician;
+    const configPhysician = this.getData().physician;
     return ApiClient.interceptUserInfo(page)
       .then((userInfo) => {
         this._isPhysician = userInfo.isPhysician;
-        console.log(`User "${userInfo.username}" isPhysician: ${userInfo.isPhysician} — using config physician: "${physician}"`);
-        return physician;
+        // If the logged-in user is a physician, use their first name for search
+        // Dropdown format is "lastName, firstName (Role)" — firstName is the most reliable search term
+        this._resolvedPhysician = userInfo.isPhysician && userInfo.firstName
+          ? userInfo.firstName
+          : configPhysician;
+        console.log(`User "${userInfo.username}" isPhysician: ${userInfo.isPhysician} — using physician: "${this._resolvedPhysician}"`);
+        return this._resolvedPhysician;
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`Failed to intercept user info: ${message}`);
         console.warn('isPhysician defaults to role-based detection');
-        return physician;
+        return configPhysician;
       });
   }
 

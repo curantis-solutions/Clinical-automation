@@ -56,7 +56,7 @@ export class BenefitsWorkflow {
     benefitType: 'Hospice' | 'Palliative' = 'Hospice',
     editPayerLevel: 'Primary' | 'Secondary' | 'Room And Board' = 'Primary',
     customData?: Partial<BenefitFormData>
-  ): Promise<void> {
+  ): Promise<string> {
     const data = customData || BENEFIT_FORM_DATA;
 
     console.log(`\n${mode === 'add' ? 'Adding' : `Editing ${editPayerLevel}`} ${benefitType} benefit...`);
@@ -96,6 +96,7 @@ export class BenefitsWorkflow {
     }
 
     // === Payer Info Section ===
+    let resolvedPayerName = '';
     if (shouldEdit('payerLevel')) {
       await this.benefitsPage.selectPayerLevel(data.payerLevel!);
     }
@@ -103,13 +104,14 @@ export class BenefitsWorkflow {
       await this.benefitsPage.selectPayerType(data.payerType!);
     }
     if (shouldEdit('payerName')) {
-      await this.benefitsPage.selectPayerName(data.payerName!);
+      resolvedPayerName = data.payerName!;
+      await this.benefitsPage.selectPayerName(resolvedPayerName);
     } else if (mode === 'add' && data.payerType) {
       // Determine benefit type for lookup: use 'Room And Board' if payerLevel matches, else use benefitType param
       const lookupBenefitType: BenefitType = data.payerLevel === 'Room And Board' ? 'Room And Board' : benefitType;
-      const payerName = this.getPayerNameForEnv(data.payerType, lookupBenefitType);
-      console.log(`Using dynamic payer name: ${payerName} (env: ${process.env.TEST_ENV || 'qa'}, tenant: ${process.env.TENANT || 'cth'}, benefitType: ${lookupBenefitType}, payerType: ${data.payerType})`);
-      await this.benefitsPage.selectPayerName(payerName);
+      resolvedPayerName = this.getPayerNameForEnv(data.payerType, lookupBenefitType);
+      console.log(`Using dynamic payer name: ${resolvedPayerName} (env: ${process.env.TEST_ENV || 'qa'}, tenant: ${process.env.TENANT || 'cth'}, benefitType: ${lookupBenefitType}, payerType: ${data.payerType})`);
+      await this.benefitsPage.selectPayerName(resolvedPayerName);
     }
     if (shouldEdit('vbid')) {
       await this.benefitsPage.toggleVbid();
@@ -124,6 +126,9 @@ export class BenefitsWorkflow {
     }
     if (shouldEdit('benefitPeriodStartDate')) {
       await this.benefitsPage.fillBenefitPeriodStartDate(data.benefitPeriodStartDate!);
+    }
+    if (shouldEdit('noticeAcceptedDate')) {
+      await this.fillDateField('noticeAcceptedDate', data.noticeAcceptedDate!);
     }
 
     // === Room And Board Specific Fields ===
@@ -243,6 +248,19 @@ export class BenefitsWorkflow {
     await this.handleProceedConfirmation();
 
     console.log(`${mode === 'add' ? 'Added' : 'Edited'} ${benefitType} benefit successfully`);
+    return resolvedPayerName;
+  }
+
+  /**
+   * Read the payer name from an existing benefit on the Benefits page.
+   * Navigates to Benefits section first, then finds the benefit card
+   * matching the given payer level and reads its payer name.
+   * @param payerLevel - The payer level to match (default "Primary")
+   * @returns The payer name as displayed (e.g., "DEV Medicare A")
+   */
+  async getPayerNameByLevel(payerLevel: string = 'Primary'): Promise<string> {
+    await this.benefitsPage.navigateToBenefits();
+    return await this.benefitsPage.getPayerNameByLevel(payerLevel);
   }
 
   /**

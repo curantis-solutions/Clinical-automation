@@ -2611,6 +2611,37 @@ export class PatientDetailsPage extends BasePage {
     return this.selectors[key];
   }
 
+  /**
+   * Read the patient display name from the Profile section on the patient detail page.
+   * The profile shows "Name: FirstName MI LastName" (e.g., "Name: Cristian E Heathcote").
+   * This method returns the name in billing grid format: "LastName, FirstName MI"
+   * (e.g., "Heathcote, Cristian E").
+   *
+   * Call this after navigating to the patient detail page.
+   */
+  async getPatientBillingName(): Promise<string> {
+    // DOM structure: <ion-col><span class="cs-h2">Name:</span> Cristian E Heathcote</ion-col>
+    // There is only one span.cs-h2 with exactly "Name:" text on the page.
+    // We evaluate in the browser to extract just the name value from the parent ion-col.
+    const nameValue = await this.page.evaluate(() => {
+      const spans = Array.from(document.querySelectorAll('span.cs-h2'));
+      const nameSpan = spans.find(s => s.textContent?.trim() === 'Name:');
+      if (!nameSpan) return '';
+      const col = nameSpan.closest('ion-col');
+      if (!col) return '';
+      return col.textContent!.replace(/Name:\s*/, '').trim();
+    });
+
+    if (!nameValue) throw new Error('Could not find patient name on profile page');
+
+    // Convert "FirstName MI LastName" → "LastName, FirstName MI"
+    const parts = nameValue.split(/\s+/);
+    if (parts.length < 2) return nameValue; // fallback: return as-is
+
+    const lastName = parts[parts.length - 1];
+    const firstAndMiddle = parts.slice(0, -1).join(' ');
+    return `${lastName}, ${firstAndMiddle}`;
+  }
 }
 
 
