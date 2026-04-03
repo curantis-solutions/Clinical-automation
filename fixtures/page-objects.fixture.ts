@@ -44,6 +44,17 @@ import { VisitAssessmentPage } from '../pages/visit-assessment.page';
 import { PreferencesModulePage } from '../pages/visit-modules/preferences.page';
 import { PainModulePage } from '../pages/visit-modules/pain.page';
 import { NeurologicalModulePage } from '../pages/visit-modules/neurological.page';
+import { RespiratoryModulePage } from '../pages/visit-modules/respiratory.page';
+import { CardiovascularModulePage } from '../pages/visit-modules/cardiovascular.page';
+import { GastrointestinalModulePage } from '../pages/visit-modules/gastrointestinal.page';
+import { GenitourinaryModulePage } from '../pages/visit-modules/genitourinary.page';
+import { NutritionalMetabolicModulePage } from '../pages/visit-modules/nutritional-metabolic.page';
+import { SkinModulePage } from '../pages/visit-modules/skin.page';
+import { MusculoskeletalModulePage } from '../pages/visit-modules/musculoskeletal.page';
+import { ADLsModulePage } from '../pages/visit-modules/adls.page';
+import { PrecautionsModulePage } from '../pages/visit-modules/precautions.page';
+import { HospiceAideModulePage } from '../pages/visit-modules/hospice-aide.page';
+import { MilitaryHistoryModulePage } from '../pages/visit-modules/military-history.page';
 
 /**
  * Collection of all page objects
@@ -78,6 +89,17 @@ export interface PageObjects {
   preferencesModule: PreferencesModulePage;
   painModule: PainModulePage;
   neurologicalModule: NeurologicalModulePage;
+  respiratoryModule: RespiratoryModulePage;
+  cardiovascularModule: CardiovascularModulePage;
+  gastrointestinalModule: GastrointestinalModulePage;
+  genitourinaryModule: GenitourinaryModulePage;
+  nutritionalMetabolicModule: NutritionalMetabolicModulePage;
+  skinModule: SkinModulePage;
+  musculoskeletalModule: MusculoskeletalModulePage;
+  adlsModule: ADLsModulePage;
+  precautionsModule: PrecautionsModulePage;
+  hospiceAideModule: HospiceAideModulePage;
+  militaryHistoryModule: MilitaryHistoryModulePage;
 }
 
 // Define fixture types
@@ -125,6 +147,17 @@ function createPageObjectsForPage(page: Page): PageObjects {
     preferencesModule: new PreferencesModulePage(page),
     painModule: new PainModulePage(page),
     neurologicalModule: new NeurologicalModulePage(page),
+    respiratoryModule: new RespiratoryModulePage(page),
+    cardiovascularModule: new CardiovascularModulePage(page),
+    gastrointestinalModule: new GastrointestinalModulePage(page),
+    genitourinaryModule: new GenitourinaryModulePage(page),
+    nutritionalMetabolicModule: new NutritionalMetabolicModulePage(page),
+    skinModule: new SkinModulePage(page),
+    musculoskeletalModule: new MusculoskeletalModulePage(page),
+    adlsModule: new ADLsModulePage(page),
+    precautionsModule: new PrecautionsModulePage(page),
+    hospiceAideModule: new HospiceAideModulePage(page),
+    militaryHistoryModule: new MilitaryHistoryModulePage(page),
   };
 }
 

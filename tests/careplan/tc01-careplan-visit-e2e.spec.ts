@@ -194,33 +194,71 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   });
 
   // =========================================================================
-  // Step 08: Navigate through remaining modules (saves data on each transition)
+  // Step 08: Fill remaining modules (saves data on each transition)
   // =========================================================================
-  test('Step 08: Navigate remaining modules to save all data', async () => {
+  test('Step 08: Fill remaining modules', async () => {
     test.setTimeout(300000);
 
-    const remainingModules = [
-      'Respiratory',
-      'Cardiovascular',
-      'Gastrointestinal',
-      'Genitourinary',
-      'Nutritional & Metabolic',
-      'Skin',
-      'Musculoskeletal',
-      'ADLs/Functional Needs',
-      'Precautions, Safety & Teachings',
-      'Hospice Aide',
-      'Military History',
-      'Summary',
-      'Symptom Summary',
-    ];
+    await test.step('Fill Respiratory', async () => {
+      await pages.visitAssessment.navigateToModule('Respiratory');
+      await pages.respiratoryModule.fillAllRespiratory();
+    });
 
-    for (const mod of remainingModules) {
-      await test.step(`Navigate to ${mod}`, async () => {
-        await pages.visitAssessment.navigateToModule(mod);
-        console.log(`${mod} — defaults accepted`);
-      });
-    }
+    await test.step('Fill Cardiovascular', async () => {
+      await pages.visitAssessment.navigateToModule('Cardiovascular');
+      await pages.cardiovascularModule.fillAllCardiovascular();
+    });
+
+    await test.step('Fill Gastrointestinal', async () => {
+      await pages.visitAssessment.navigateToModule('Gastrointestinal');
+      await pages.gastrointestinalModule.fillAllGastrointestinal();
+    });
+
+    await test.step('Fill Genitourinary', async () => {
+      await pages.visitAssessment.navigateToModule('Genitourinary');
+      await pages.genitourinaryModule.fillAllGenitourinary();
+    });
+
+    await test.step('Fill Nutritional & Metabolic', async () => {
+      await pages.visitAssessment.navigateToModule('Nutritional & Metabolic');
+      await pages.nutritionalMetabolicModule.fillAllNutritionalMetabolic();
+    });
+
+    await test.step('Fill Skin', async () => {
+      await pages.visitAssessment.navigateToModule('Skin');
+      await pages.skinModule.fillAllSkin();
+    });
+
+    await test.step('Fill Musculoskeletal', async () => {
+      await pages.visitAssessment.navigateToModule('Musculoskeletal');
+      await pages.musculoskeletalModule.fillAllMusculoskeletal();
+    });
+
+    await test.step('Fill ADLs/Functional Needs', async () => {
+      await pages.visitAssessment.navigateToModule('ADLs/Functional Needs');
+      await pages.adlsModule.fillAllADLs();
+    });
+
+    await test.step('Fill Precautions, Safety & Teachings', async () => {
+      await pages.visitAssessment.navigateToModule('Precautions, Safety & Teachings');
+      await pages.precautionsModule.fillAllPrecautions();
+    });
+
+    await test.step('Fill Hospice Aide', async () => {
+      await pages.visitAssessment.navigateToModule('Hospice Aide');
+      await pages.hospiceAideModule.fillAllHospiceAide();
+    });
+
+    await test.step('Fill Military History', async () => {
+      await pages.visitAssessment.navigateToModule('Military History');
+      await pages.militaryHistoryModule.fillAllMilitaryHistory();
+    });
+
+    await test.step('Navigate to Summary and Symptom Summary to save', async () => {
+      await pages.visitAssessment.navigateToModule('Summary');
+      await pages.visitAssessment.navigateToModule('Symptom Summary');
+      console.log('All modules filled and saved');
+    });
   });
 
   // =========================================================================
