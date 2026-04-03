@@ -55,6 +55,8 @@ import { ADLsModulePage } from '../pages/visit-modules/adls.page';
 import { PrecautionsModulePage } from '../pages/visit-modules/precautions.page';
 import { HospiceAideModulePage } from '../pages/visit-modules/hospice-aide.page';
 import { MilitaryHistoryModulePage } from '../pages/visit-modules/military-history.page';
+import { SummaryModulePage } from '../pages/visit-modules/summary.page';
+import { SymptomSummaryModulePage } from '../pages/visit-modules/symptom-summary.page';
 
 /**
  * Collection of all page objects
@@ -100,6 +102,8 @@ export interface PageObjects {
   precautionsModule: PrecautionsModulePage;
   hospiceAideModule: HospiceAideModulePage;
   militaryHistoryModule: MilitaryHistoryModulePage;
+  summaryModule: SummaryModulePage;
+  symptomSummaryModule: SymptomSummaryModulePage;
 }
 
 // Define fixture types
@@ -158,6 +162,8 @@ function createPageObjectsForPage(page: Page): PageObjects {
     precautionsModule: new PrecautionsModulePage(page),
     hospiceAideModule: new HospiceAideModulePage(page),
     militaryHistoryModule: new MilitaryHistoryModulePage(page),
+    summaryModule: new SummaryModulePage(page),
+    symptomSummaryModule: new SymptomSummaryModulePage(page),
   };
 }
 
