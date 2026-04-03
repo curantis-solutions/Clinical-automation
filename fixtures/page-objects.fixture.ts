@@ -39,6 +39,11 @@ import { AccountsReceivablePage } from '../pages/billing/accounts-receivable.pag
 import { BillingWorkflow } from '../workflows/billing.workflow';
 import { FacilitiesPage } from '../pages/facilities.page';
 import { FacilitiesWorkflow } from '../workflows/facilities.workflow';
+import { VisitAddDialogPage } from '../pages/visit-add-dialog.page';
+import { VisitAssessmentPage } from '../pages/visit-assessment.page';
+import { PreferencesModulePage } from '../pages/visit-modules/preferences.page';
+import { PainModulePage } from '../pages/visit-modules/pain.page';
+import { NeurologicalModulePage } from '../pages/visit-modules/neurological.page';
 
 /**
  * Collection of all page objects
@@ -68,6 +73,11 @@ export interface PageObjects {
   billingWorkflow: BillingWorkflow;
   facilities: FacilitiesPage;
   facilitiesWorkflow: FacilitiesWorkflow;
+  visitAddDialog: VisitAddDialogPage;
+  visitAssessment: VisitAssessmentPage;
+  preferencesModule: PreferencesModulePage;
+  painModule: PainModulePage;
+  neurologicalModule: NeurologicalModulePage;
 }
 
 // Define fixture types
@@ -110,6 +120,11 @@ function createPageObjectsForPage(page: Page): PageObjects {
     billingWorkflow: new BillingWorkflow(page),
     facilities: new FacilitiesPage(page),
     facilitiesWorkflow: new FacilitiesWorkflow(page),
+    visitAddDialog: new VisitAddDialogPage(page),
+    visitAssessment: new VisitAssessmentPage(page),
+    preferencesModule: new PreferencesModulePage(page),
+    painModule: new PainModulePage(page),
+    neurologicalModule: new NeurologicalModulePage(page),
   };
 }
 
