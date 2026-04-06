@@ -263,7 +263,13 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Fill Gastrointestinal', async () => {
       await pages.visitAssessment.navigateToModule('Gastrointestinal');
-      await pages.gastrointestinalModule.fillAllGastrointestinal();
+      await pages.gastrointestinalModule.fillGastrointestinal({
+        bowelRegimen: 'yes',
+        treatments: ['laxatives'],
+        bmType: 'irregular',
+        bmIrregular: 'constipation',
+        abdomenState: ['soft'],
+      });
     });
 
     await test.step('Fill Genitourinary', async () => {
@@ -278,7 +284,25 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Fill Skin', async () => {
       await pages.visitAssessment.navigateToModule('Skin');
-      await pages.skinModule.fillAllSkin();
+      await pages.skinModule.fillSkin({
+        addWound: true,
+        locationTitle: 'Left Ankle',
+        width: '2',
+        length: '3',
+        depth: '1',
+        painScore: 3,
+        woundCareTreatment: 'Clean and dress wound daily',
+        woundStatus: 'active',
+        injuryTreatments: ['pressureUlcerInjuryCare', 'applicationOfNonSurgicalDressings'],
+      });
+
+      // Verify wound data in history
+      const verified = await pages.skinModule.verifyWoundHistory({
+        locationTitle: 'Left Ankle',
+        status: 'active',
+        dimensions: 'W-2, L-3, D-1',
+      });
+      expect(verified).toBeTruthy();
     });
 
     await test.step('Fill Musculoskeletal', async () => {

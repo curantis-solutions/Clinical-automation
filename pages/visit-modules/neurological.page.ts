@@ -107,24 +107,14 @@ export class NeurologicalModulePage {
    * that was just expanded, so we scope to the nearest visible one.
    */
   /**
-   * Set a score on an ion-range slider using keyboard arrows.
+   * Set a score on an ion-range slider by clicking the nth tick.
+   * Ticks are div.range-tick elements: index 0 = score 0, index 1 = score 1, etc.
    */
   private async setScore(rangeSelector: string, score: number): Promise<void> {
-    const knob = this.page.locator(`${rangeSelector} .range-knob-handle`);
-    if (!await knob.isVisible({ timeout: 3000 }).catch(() => false)) return;
-
-    const currentVal = parseInt(await knob.getAttribute('aria-valuenow') || '0');
-    const diff = score - currentVal;
-
-    await knob.click();
-    await this.page.waitForTimeout(300);
-
-    const key = diff > 0 ? 'ArrowRight' : 'ArrowLeft';
-    for (let i = 0; i < Math.abs(diff); i++) {
-      await this.page.keyboard.press(key);
-      await this.page.waitForTimeout(100);
-    }
-    await this.page.waitForTimeout(300);
+    const tick = this.page.locator(`${rangeSelector} .range-tick`).nth(score);
+    if (!await tick.isVisible({ timeout: 3000 }).catch(() => false)) return;
+    await tick.click({ force: true });
+    await this.page.waitForTimeout(500);
   }
 
   private async fillSymptomCondition(
