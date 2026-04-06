@@ -187,11 +187,15 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Fill Pain fields', async () => {
       await pages.painModule.fillPain({
+        assessmentWith: ['patientResponsibleParty'],
+        painTool: 'Numeric',
+        painScore: 2,
+        painLocation: 'Acute',
         neuropathicPain: 'no',
         experiencingPain: 'no',
         symptomImpact: 'patientNotExperiencingTheSymptom',
         activePain: 'no',
-        painAssessmentDone: 'no',
+        painAssessmentDone: 'yes',
         scheduledOpioid: 'no',
         prnOpioid: 'no',
       });
