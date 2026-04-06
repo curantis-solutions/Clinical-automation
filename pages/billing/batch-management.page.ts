@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import { TIMEOUTS } from '../../config/timeouts';
 import { BatchRowData, BatchDetailRowData, BatchDownloadFormat } from '../../types/billing.types';
@@ -172,7 +172,9 @@ export class BatchManagementPage extends BasePage {
 
   async selectBatchRow(index: number): Promise<void> {
     await this.page.locator(this.selectors.rowCheckbox(index)).click();
-    await this.page.waitForTimeout(300);
+    // Wait for Batch Options button to become enabled after checkbox selection
+    await this.page.getByRole('button', { name: 'Batch Options' }).waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT });
+    await expect(this.page.getByRole('button', { name: 'Batch Options' })).toBeEnabled({ timeout: TIMEOUTS.ELEMENT });
   }
 
   /**
@@ -180,16 +182,16 @@ export class BatchManagementPage extends BasePage {
    */
   async openBatchOptionsAndGetFormats(): Promise<string[]> {
     const batchOptionsBtn = this.page.getByRole('button', { name: 'Batch Options' });
-    await batchOptionsBtn.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT });
     await batchOptionsBtn.click();
     await this.page.waitForTimeout(500);
 
-    // ion-radio elements don't have aria labels — detect formats by visible text in the modal
+    // Modal renders both "Download Files" and "Send Electronic" sections with duplicate ion-items.
+    // Scope to first ion-list (Download Files) to avoid strict mode violations.
+    const downloadList = this.page.locator('ion-modal ion-list').first();
     const formats: string[] = [];
-    const modal = this.page.locator('ion-modal');
     for (const name of ['837', 'CSV']) {
-      const label = modal.getByText(name, { exact: true });
-      if (await label.count() > 0) formats.push(name);
+      const item = downloadList.locator('ion-item').filter({ hasText: name });
+      if (await item.count() > 0) formats.push(name);
     }
     return formats;
   }
@@ -202,13 +204,16 @@ export class BatchManagementPage extends BasePage {
     await this.selectBatchRow(rowIndex);
     const availableFormats = await this.openBatchOptionsAndGetFormats();
 
-    // Click the ion-item containing the format text (force bypasses ion-radio click overlay)
-    const modal = this.page.locator('ion-modal');
-    await modal.locator('ion-item').filter({ hasText: format }).click({ force: true });
+    // Click ion-item in first ion-list (Download Files) — no force, full event dispatch needed for Ionic
+    const downloadList = this.page.locator('ion-modal ion-list').first();
+    await downloadList.locator('ion-item').filter({ hasText: format }).click();
     await this.page.waitForTimeout(300);
 
-    await this.page.getByRole('button', { name: 'Proceed' }).click();
+    await expect(this.page.locator('ion-modal').getByRole('button', { name: 'Proceed' }).first()).toBeEnabled({ timeout: TIMEOUTS.ELEMENT });
+    await this.page.locator('ion-modal').getByRole('button', { name: 'Proceed' }).first().click({ force: true });
     await this.page.waitForTimeout(1000);
+
+    await this.dismissDownloadDialog();
 
     return availableFormats;
   }

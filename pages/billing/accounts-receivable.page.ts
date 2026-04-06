@@ -2,6 +2,7 @@ import { Page } from '@playwright/test';
 import { BasePage } from '../base.page';
 import { TIMEOUTS } from '../../config/timeouts';
 import { ARRowData, ARDownloadFormat } from '../../types/billing.types';
+import { PdfHelper } from '../../utils/pdf-helper';
 
 /**
  * Accounts Receivable Page Object
@@ -144,18 +145,20 @@ export class AccountsReceivablePage extends BasePage {
   async openDownloadClaimAndGetFormats(rowIndex: number, payerName: string): Promise<string[]> {
     await this.clickDownloadClaim(rowIndex);
 
-    // Click the ion-item containing the payer (clicking label is intercepted by ion-radio)
+    // AR Download modal: first ion-list = Payer, second ion-list = Forms
+    // Payer must be clicked first — format radios are disabled until payer is selected
     const modal = this.page.locator('ion-modal');
     const payerItem = modal.locator('ion-item').filter({ hasText: payerName });
     await payerItem.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT });
     await payerItem.click({ force: true });
     await this.page.waitForTimeout(500);
 
-    // ion-radio elements don't have aria labels — detect formats by visible text in the modal
+    // Detect available formats from the second ion-list (Forms section)
+    const formsList = modal.locator('ion-list').nth(1);
     const formats: string[] = [];
-    for (const name of ['UB-04', '837', 'CSV']) {
-      const label = modal.getByText(name, { exact: true });
-      if (await label.count() > 0) formats.push(name);
+    for (const name of ['UB-04', 'PDF', '837', 'CSV']) {
+      const item = formsList.locator('ion-item').filter({ hasText: name });
+      if (await item.count() > 0) formats.push(name);
     }
     return formats;
   }
@@ -167,14 +170,36 @@ export class AccountsReceivablePage extends BasePage {
   async downloadClaimAs(rowIndex: number, payerName: string, format: ARDownloadFormat): Promise<string[]> {
     const availableFormats = await this.openDownloadClaimAndGetFormats(rowIndex, payerName);
 
-    // Click the ion-item containing the format text (force bypasses ion-radio click overlay)
-    const modal = this.page.locator('ion-modal');
-    await modal.locator('ion-item').filter({ hasText: format }).click({ force: true });
+    // Click format ion-item in Forms list (second ion-list) — force bypasses ion-radio overlay
+    const formsList = this.page.locator('ion-modal ion-list').nth(1);
+    await formsList.locator('ion-item').filter({ hasText: format }).click({ force: true });
     await this.page.waitForTimeout(300);
 
-    await this.page.getByRole('button', { name: 'Proceed' }).click();
+    await this.page.locator('ion-modal').getByRole('button', { name: 'Proceed' }).click({ force: true });
     await this.page.waitForTimeout(1000);
 
+    await this.dismissDownloadDialog();
+
     return availableFormats;
+  }
+
+  /**
+   * Open Download Claim modal, select payer + 837 format, and return the downloaded text content.
+   * Used for 837 text file verification (plain text, not PDF).
+   */
+  async downloadClaimAsText(rowIndex: number, payerName: string): Promise<string> {
+    await this.openDownloadClaimAndGetFormats(rowIndex, payerName);
+
+    // Click 837 in Forms list (second ion-list)
+    const formsList = this.page.locator('ion-modal ion-list').nth(1);
+    await formsList.locator('ion-item').filter({ hasText: '837' }).click({ force: true });
+    await this.page.waitForTimeout(300);
+
+    const content = await PdfHelper.downloadAndReadTextFile(
+      this.page,
+      'ion-modal button:has-text("Proceed")'
+    );
+    await this.dismissDownloadDialog();
+    return content;
   }
 }

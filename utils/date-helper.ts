@@ -143,6 +143,15 @@ export class DateHelper {
   }
 
   /**
+   * Convert MM/DD/YYYY to YYYYMMDD (EDI/837 date format).
+   * @example DateHelper.toEdiDate('03/01/2026') → '20260301'
+   */
+  static toEdiDate(mmddyyyy: string): string {
+    const [mm, dd, yyyy] = mmddyyyy.split('/');
+    return `${yyyy}${mm}${dd}`;
+  }
+
+  /**
    * Get the first day of the month for a given date
    * @param date - Date object or date string in MM/DD/YYYY format
    * @returns Date string in MM/DD/YYYY format

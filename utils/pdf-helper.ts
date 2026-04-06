@@ -56,6 +56,20 @@ export class PdfHelper {
   }
 
   /**
+   * Download a text file (e.g., 837) and return its content as a string.
+   * Unlike PDFs, text files are read directly with fs.readFileSync.
+   * @param page - Playwright Page
+   * @param downloadSelector - Selector for the download trigger element
+   * @returns Text content of the downloaded file
+   */
+  static async downloadAndReadTextFile(page: Page, downloadSelector: string): Promise<string> {
+    const filePath = await this.downloadFile(page, downloadSelector);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    this.cleanup(filePath);
+    return content;
+  }
+
+  /**
    * Verify that text contains all expected values.
    * @param text - Text to search in
    * @param expectedValues - Array of strings that must be present
