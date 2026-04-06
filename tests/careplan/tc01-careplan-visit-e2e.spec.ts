@@ -221,10 +221,12 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         oriented: ['person', 'place', 'time', 'situation'],
         conditions: {
           anxiety: {
+            score: 3,
             symptomImpact: 'mildImpact',
             impactAreas: ['sleep', 'emotionalDistress'],
           },
           agitation: {
+            score: 2,
             symptomImpact: 'mildImpact',
             impactAreas: ['sleep', 'emotionalDistress'],
           },

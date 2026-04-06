@@ -29,6 +29,8 @@ export interface NeurologicalData {
 }
 
 export interface SymptomConditionData {
+  /** Score (0-10) on the range slider — generates plan of care items */
+  score?: number;
   /** Symptom impact: notImpacted, mildImpact, moderateImpact, severeImpact, patientNotExperiencingTheSymptom */
   symptomImpact?: string;
   /** Impact area checkboxes to select */
@@ -58,19 +60,20 @@ export class NeurologicalModulePage {
     toggleMap: {
       anxiety: '[data-cy="toggle-patientHasAnxiety"]',
       agitation: '[data-cy="toggle-patientExperiencesAgitation"]',
-      seizures: '[data-cy="toggle-patientHasSeizures"]',
-      aphasia: '[data-cy="toggle-patientHasAphasia"]',
-      ataxia: '[data-cy="toggle-patientHasAtaxia"]',
-      apraxia: '[data-cy="toggle-patientHasApraxia"]',
-      comatose: '[data-cy="toggle-patientIsComatose"]',
-      confusion: '[data-cy="toggle-patientHasConfusion"]',
-      depression: '[data-cy="toggle-patientHasDepression"]',
-      headaches: '[data-cy="toggle-patientHasHeadaches"]',
-      hemiplegia: '[data-cy="toggle-patientHasHemiplegia"]',
-      paraplegia: '[data-cy="toggle-patientHasParaplegia"]',
-      quadriplegia: '[data-cy="toggle-patientHasQuadraplegia"]',
-      otherIssues: '[data-cy="toggle-patientHasOtherIssues"]',
+      seizures: '[data-cy="toggle-patientExperiencesSeizures"]',
+      aphasia: '[data-cy="toggle-patientExperiencesAphasia"]',
+      ataxia: '[data-cy="toggle-patientExperiencesAtaxia"]',
+      apraxia: '[data-cy="toggle-patientExperiencesApraxia"]',
+      confusion: '[data-cy="toggle-patientExperiencesConfusion"]',
+      depression: '[data-cy="toggle-patientExperiencesDepression"]',
+      headaches: '[data-cy="toggle-patientExperiencesHeadaches"]',
+      hemiplegia: '[data-cy="toggle-patientHemiplegic"]',
+      paraplegia: '[data-cy="toggle-patientParaplegic"]',
+      quadriplegia: '[data-cy="toggle-patientQuadraplegic"]',
     } as Record<string, string>,
+
+    // ── Score Range (per condition — generates plan of care items) ──────
+    conditionScoreRange: (condition: string) => `[data-cy="input-${condition}Score-range"]`,
 
     // ── Symptom Impact (shared across all condition cards when toggle is ON) ──
     symptomImpactRadio: (impact: string) => `[data-cy="radio-rankSymptomImpact-${impact}"]`,
@@ -103,6 +106,27 @@ export class NeurologicalModulePage {
    * The radio/checkbox selectors are shared — they appear inside the card
    * that was just expanded, so we scope to the nearest visible one.
    */
+  /**
+   * Set a score on an ion-range slider using keyboard arrows.
+   */
+  private async setScore(rangeSelector: string, score: number): Promise<void> {
+    const knob = this.page.locator(`${rangeSelector} .range-knob-handle`);
+    if (!await knob.isVisible({ timeout: 3000 }).catch(() => false)) return;
+
+    const currentVal = parseInt(await knob.getAttribute('aria-valuenow') || '0');
+    const diff = score - currentVal;
+
+    await knob.click();
+    await this.page.waitForTimeout(300);
+
+    const key = diff > 0 ? 'ArrowRight' : 'ArrowLeft';
+    for (let i = 0; i < Math.abs(diff); i++) {
+      await this.page.keyboard.press(key);
+      await this.page.waitForTimeout(100);
+    }
+    await this.page.waitForTimeout(300);
+  }
+
   private async fillSymptomCondition(
     conditionName: string,
     toggleSelector: string,
@@ -111,6 +135,13 @@ export class NeurologicalModulePage {
     // Turn on the toggle
     await this.turnOnToggle(toggleSelector);
     console.log(`  ${conditionName}: toggle ON`);
+
+    // Set score on the range slider (generates plan of care items)
+    if (data.score !== undefined) {
+      const scoreSelector = this.selectors.conditionScoreRange(conditionName);
+      await this.setScore(scoreSelector, data.score);
+      console.log(`    Score: ${data.score}`);
+    }
 
     // Select symptom impact radio (scoped to the card)
     if (data.symptomImpact) {
