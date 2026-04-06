@@ -78,22 +78,18 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 02: Open existing Initial Nursing Assessment from grid
   // =========================================================================
-  test('Step 02: Open Initial Nursing Assessment visit from grid', async () => {
+  test('Step 02: Create new Initial Nursing Assessment visit', async () => {
     test.setTimeout(120000);
 
-    await test.step('Click existing Initial Nursing Assessment visit', async () => {
-      await sharedPage.waitForTimeout(3000);
-      // Find the In Progress visit row and click the visit type cell
-      const visitRow = sharedPage.locator('.visitsRow')
-        .filter({ has: sharedPage.locator('div[data-cy="label-visit-type"]', { hasText: 'Initial Nursing Assessment' }) })
-        .filter({ has: sharedPage.locator('div[data-cy="label-visit-status"]', { hasText: 'In Progress' }) })
-        .first();
-      await visitRow.locator('div[data-cy="label-visit-type"]').click({ force: true });
-      await sharedPage.waitForURL(/assessment/, { timeout: 30000 });
+    await test.step('Create visit via dialog', async () => {
+      await pages.visitAddDialog.clickAddVisit();
+      await pages.visitAddDialog.selectRole('Registered Nurse (RN)');
+      await pages.visitAddDialog.selectType('Initial Nursing Assessment');
+      await pages.visitAddDialog.submit();
 
       const url = sharedPage.url();
       expect(url).toContain('/assessment/');
-      console.log('Opened Initial Nursing Assessment visit');
+      console.log('Created new Initial Nursing Assessment visit');
     });
   });
 
@@ -190,7 +186,6 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         assessmentWith: ['patientResponsibleParty'],
         painTool: 'Numeric',
         painScore: 2,
-        painLocation: 'Acute',
         neuropathicPain: 'no',
         experiencingPain: 'no',
         symptomImpact: 'patientNotExperiencingTheSymptom',
@@ -199,6 +194,13 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         scheduledOpioid: 'no',
         prnOpioid: 'no',
       });
+    });
+
+    await test.step('Save Pain by clicking another module then back', async () => {
+      // Navigate to Neurological to trigger save, then back to Pain to verify
+      await pages.visitAssessment.navigateToModule('Neurological');
+      await pages.visitAssessment.navigateToModule('Pain');
+      console.log('Saved Pain data by navigating away and back');
     });
   });
 
@@ -222,6 +224,10 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
             symptomImpact: 'mildImpact',
             impactAreas: ['sleep', 'emotionalDistress'],
           },
+          agitation: {
+            symptomImpact: 'mildImpact',
+            impactAreas: ['sleep', 'emotionalDistress'],
+          },
         },
       });
     });
@@ -236,7 +242,16 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Fill Respiratory', async () => {
       await pages.visitAssessment.navigateToModule('Respiratory');
-      await pages.respiratoryModule.fillAllRespiratory();
+      await pages.respiratoryModule.fillRespiratory({
+        sobScreening: 'yes',
+        sobNow: 'yes',
+        treatmentInitiated: 'yes',
+        treatmentTypes: ['opioids'],
+        symptomImpact: 'mildImpact',
+        impactAreas: ['dailyActivities', 'sleep'],
+        explanation: 'Mild SOB with exertion, managed with opioids',
+        patientOnOxygen: 'noRoomAir',
+      });
     });
 
     await test.step('Fill Cardiovascular', async () => {

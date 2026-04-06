@@ -110,6 +110,11 @@ export class PainModulePage {
   private async clickElement(selector: string): Promise<void> {
     const el = this.page.locator(selector);
     if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Skip if the element itself or its inner button is disabled
+      const selfDisabled = await el.getAttribute('aria-disabled').catch(() => null);
+      if (selfDisabled === 'true') return;
+      const btnDisabled = await el.locator('button[aria-disabled="true"]').count().catch(() => 0);
+      if (btnDisabled > 0) return;
       await el.scrollIntoViewIfNeeded();
       await el.click({ force: true });
       await this.page.waitForTimeout(300);
@@ -127,18 +132,44 @@ export class PainModulePage {
   async fillPain(data: PainData): Promise<void> {
     console.log('Filling Pain module...');
 
-    // Assessment With
+    // Assessment With — only click if checkboxes are enabled (disabled on Pain page)
     if (data.assessmentWith) {
       for (const item of data.assessmentWith) {
-        await this.clickElement(this.selectors.assessmentWithCheckbox(item));
+        const checkbox = this.page.locator(this.selectors.assessmentWithCheckbox(item));
+        const isDisabled = await checkbox.locator('button').getAttribute('aria-disabled').catch(() => 'true');
+        if (isDisabled !== 'true') {
+          await this.clickElement(this.selectors.assessmentWithCheckbox(item));
+        }
       }
-      console.log(`  Assessment With: ${data.assessmentWith.join(', ')}`);
+      console.log(`  Assessment With: checked where enabled`);
     }
 
-    // Pain Tool selection
+    // J0900 Pain Screening — select tool and set rating on main page
+    // This data maps to the Comprehensive Pain Assessment modal
     if (data.painTool) {
-      await this.clickElement(this.selectors.painToolButton(data.painTool));
-      console.log(`  Pain Tool: ${data.painTool}`);
+      const toolMap: Record<string, string> = {
+        'FLACC': 'flacc', 'Flacc': 'flacc', 'flacc': 'flacc',
+        'Wong-Baker': 'wongBaker', 'wongBaker': 'wongBaker',
+        'Numeric': 'numeric', 'numeric': 'numeric',
+        'Abbey': 'abbey', 'abbey': 'abbey',
+        'PAIN-AD': 'painAD', 'painAD': 'painAD',
+        'Verbal': 'verbal', 'verbal': 'verbal',
+      };
+      const toolKey = toolMap[data.painTool] || data.painTool.toLowerCase();
+      // Click the tool button on the main page J0900 section
+      const toolBtn = this.page.locator(`[data-cy="button-tool-${toolKey}"]`).first();
+      await toolBtn.scrollIntoViewIfNeeded();
+      await toolBtn.click();
+      await this.page.waitForTimeout(2000);
+      console.log(`  J0900 Pain Tool: ${data.painTool}`);
+
+      // Set pain rating on the range slider that appears after tool selection
+      if (data.painScore !== undefined) {
+        const mainRange = this.page.locator('pain-screening-tool #numericToolRange');
+        await mainRange.waitFor({ state: 'visible', timeout: 5000 });
+        await this.setPainRating(data.painScore, 'pain-screening-tool #numericToolRange');
+        console.log(`  J0900 Pain Rating: ${data.painScore}`);
+      }
     }
 
     // Neuropathic Pain
@@ -214,6 +245,26 @@ export class PainModulePage {
   }
 
   /**
+   * Set pain rating on an ion-range slider by clicking the correct tick position.
+   * The slider has ticks at 0%, 10%, 20%... for values 0-10.
+   */
+  private async setPainRating(score: number, rangeSelector?: string): Promise<void> {
+    const selector = rangeSelector || '#numericToolRange';
+    const range = this.page.locator(selector);
+    if (!await range.isVisible({ timeout: 3000 }).catch(() => false)) return;
+
+    const box = await range.boundingBox();
+    if (!box) return;
+
+    // Calculate tick position: score 0 = left edge, score 10 = right edge
+    const percentage = score / 10;
+    const clickX = box.x + (box.width * percentage);
+    const clickY = box.y + box.height / 2;
+    await this.page.mouse.click(clickX, clickY);
+    await this.page.waitForTimeout(500);
+  }
+
+  /**
    * Select first option from an ion-select popover inside the modal.
    */
   private async selectFirstIonOption(selector: string): Promise<void> {
@@ -243,33 +294,13 @@ export class PainModulePage {
 
     const nextBtn = this.page.locator(this.selectors.modalNextBtn);
 
-    // ── Step 1: Select tool and set score ────────────────────────────────
-    const tool = data.painTool || 'Numeric';
-    await this.page.locator(this.selectors.modalToolButton(tool)).click();
+    // ── Step 1: Tool and score auto-mapped from J0900 Pain Screening ────
+    // The modal inherits the tool selection and score from the main page
+    // Next should already be enabled — click it to go to Step 2
     await this.page.waitForTimeout(1000);
-    console.log(`  Step 1: Selected tool: ${tool}`);
-
-    // Set score on the range slider (Numeric tool: 0-10)
-    const score = data.painScore ?? 2;
-    const rangeSlider = this.page.locator(this.selectors.numericRange);
-    if (await rangeSlider.isVisible({ timeout: 3000 }).catch(() => false)) {
-      // The range has ticks at 0%, 10%, 20%... for values 0-10
-      // Click the tick corresponding to the desired score
-      const box = await rangeSlider.boundingBox();
-      if (box) {
-        const tickX = box.x + (box.width * score / 10);
-        const tickY = box.y + box.height / 2;
-        await this.page.mouse.click(tickX, tickY);
-        await this.page.waitForTimeout(500);
-        console.log(`  Step 1: Pain score set to ${score}`);
-      }
-    }
-
-    // Click Next → Step 2
-    await this.page.waitForTimeout(500);
     await nextBtn.click();
     await this.page.waitForTimeout(1500);
-    console.log('  → Next to Step 2');
+    console.log('  Step 1: Tool/score inherited from J0900 → Next to Step 2');
 
     // ── Step 2: Location + Pain Details (all in sidebar) ────────────────
     // Check "Generalized" checkbox

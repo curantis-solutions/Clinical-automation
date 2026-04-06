@@ -102,14 +102,14 @@ export class VisitAssessmentPage {
   // ══════════════════════════════════════════════════════════════════════
 
   async navigateToModule(moduleName: string): Promise<void> {
-    let selector: string;
-    if (moduleName === 'Summary') {
-      selector = '#summaryNavButton';
-    } else if (moduleName === 'Symptom Summary') {
-      selector = '#symptomSummaryNavButton';
-    } else {
-      selector = this.selectors.moduleNav(moduleName);
-    }
+    // Use nav button IDs for modules whose text matches other buttons
+    const navButtonIds: Record<string, string> = {
+      'Summary': '#summaryNavButton',
+      'Symptom Summary': '#symptomSummaryNavButton',
+      'Pain': '#painNavButton',
+    };
+
+    const selector = navButtonIds[moduleName] || this.selectors.moduleNav(moduleName);
     await this.page.locator(selector).click();
 
     // Wait for "Saving..." dialog to appear and disappear
