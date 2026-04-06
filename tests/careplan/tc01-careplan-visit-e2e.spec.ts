@@ -83,8 +83,12 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Click existing Initial Nursing Assessment visit', async () => {
       await sharedPage.waitForTimeout(3000);
-      await sharedPage.locator('div[data-cy="label-visit-type"]')
-        .filter({ hasText: 'Initial Nursing Assessment' }).first().click({ force: true });
+      // Find the In Progress visit row and click the visit type cell
+      const visitRow = sharedPage.locator('.visitsRow')
+        .filter({ has: sharedPage.locator('div[data-cy="label-visit-type"]', { hasText: 'Initial Nursing Assessment' }) })
+        .filter({ has: sharedPage.locator('div[data-cy="label-visit-status"]', { hasText: 'In Progress' }) })
+        .first();
+      await visitRow.locator('div[data-cy="label-visit-type"]').click({ force: true });
       await sharedPage.waitForURL(/assessment/, { timeout: 30000 });
 
       const url = sharedPage.url();
@@ -153,8 +157,19 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       expect(title).toContain('Preferences');
     });
 
-    await test.step('Fill all Preferences fields', async () => {
-      await pages.preferencesModule.fillAllPreferences();
+    await test.step('Fill Preferences fields', async () => {
+      await pages.preferencesModule.fillPreferences({
+        assessmentWith: ['patientResponsibleParty'],
+        hopeDiagnosis: 'cancer',
+        interpreterAssist: 'no',
+        cprAsked: 'yesDiscussionOccurred',
+        understandCpr: 'yes',
+        wantCpr: 'no',
+        outOfHospitalDnr: 'yes',
+        polst: 'no',
+        most: 'no',
+        lifeSustainingTreatmentsAsked: 'yesAndDiscussed',
+      });
     });
   });
 
@@ -170,8 +185,16 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       expect(title).toContain('Pain');
     });
 
-    await test.step('Fill all Pain fields', async () => {
-      await pages.painModule.fillAllPain();
+    await test.step('Fill Pain fields', async () => {
+      await pages.painModule.fillPain({
+        neuropathicPain: 'no',
+        experiencingPain: 'no',
+        symptomImpact: 'patientNotExperiencingTheSymptom',
+        activePain: 'no',
+        painAssessmentDone: 'no',
+        scheduledOpioid: 'no',
+        prnOpioid: 'no',
+      });
     });
   });
 
@@ -187,8 +210,16 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       expect(title).toContain('Neurological');
     });
 
-    await test.step('Fill all Neurological fields', async () => {
-      await pages.neurologicalModule.fillAllNeurological();
+    await test.step('Fill Neurological with conditions', async () => {
+      await pages.neurologicalModule.fillNeurological({
+        oriented: ['person', 'place', 'time', 'situation'],
+        conditions: {
+          anxiety: {
+            symptomImpact: 'mildImpact',
+            impactAreas: ['sleep', 'emotionalDistress'],
+          },
+        },
+      });
     });
 
   });
