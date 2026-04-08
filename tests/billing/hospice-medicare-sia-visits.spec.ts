@@ -1,17 +1,28 @@
 /**
  * =============================================================================
- * E2E Hospice Medicare — Full billing flow
+ * E2E Hospice Medicare — Visits + SIA Billing Verification
  * =============================================================================
  *
- * MODULE: Billing
+ * MODULE: Billing + Visits
  * SCENARIO: Create patient → fill all sections → admit → verify claims →
- *           verify NOE details + UB-04 PDF → add Notice Accepted Date →
- *           submit NOE → verify 837 Batch + AR → verify download options →
- *           wait for 812 in Ready → verify 812 PDF →
- *           submit 812 → verify 837 Batch + AR for claims
+ *           verify 812 errors → login as RN →
+ *           create + record + complete INA visit →
+ *           create + record + complete Postmortem visit (discharges patient) →
+ *           login as MD → verify 814 discharge claim →
+ *           verify SIA calculated + RLIS present + service end = death date
+ *
+ * BILL TYPE RULES:
+ *   814: Discharge claim (discharge month ≠ admit month)
+ *   811: Discharge claim (discharge month = admit month)
+ *
+ * SIA (Service Intensity Add-on):
+ *   Skilled Nursing Visit (Revenue 0551, HCPCS G0299) → ~$33.93 per visit
+ *   Routine Home Care (Revenue 0651, HCPCS Q5001) → $0.00
+ *
+ * ROLES: MD (login, admit, billing), RN (INA + Postmortem visits)
  *
  * RUN:
- *   npx playwright test tests/billing/e2e-hospice-medicare.spec.ts --headed --workers=1
+ *   npx playwright test tests/billing/hospice-medicare-sia-visits.spec.ts --headed --workers=1
  * =============================================================================
  */
 
@@ -24,8 +35,6 @@ import { TIMEOUTS, TEST_TIMEOUTS, VIEWPORTS } from '../../config/timeouts';
 import { createAttendingPhysicianData } from '../../fixtures/care-team-fixtures';
 import { createBenefitData } from '../../fixtures/benefit-fixtures';
 import { DateHelper } from '../../utils/date-helper';
-import { NoticeExpectedData } from '../../types/billing.types';
-import { buildNoticeUb04Expected, buildClaimUb04Expected } from '../../types/ub04.types';
 
 let sharedPage: Page;
 let sharedContext: BrowserContext;
@@ -41,7 +50,20 @@ let capturedCertifyingPhysician = '';
 const hospiceFixture = PatientFixtures.PATIENT_FIXTURES.HOSPICE;
 const ADMIT_DATE = DateHelper.getDateOfMonth();
 
-test.describe.serial('E2E Hospice Medicare', () => {
+// INA visit: 2 days ago
+const INA_VISIT_DATE = DateHelper.getPastDate(2);
+
+// Postmortem: death yesterday at 14:00, visit yesterday 10:00-10:30
+const POSTMORTEM_VISIT_DATE = DateHelper.getPastDate(1);
+
+// Death Assessment ion-picker parts (yesterday)
+const deathDate = new Date();
+deathDate.setDate(deathDate.getDate() - 1);
+const DEATH_MONTH = deathDate.toLocaleString('en-US', { month: 'short' });
+const DEATH_DAY = String(deathDate.getDate());
+const DEATH_YEAR = String(deathDate.getFullYear());
+
+test.describe.serial('E2E Hospice Medicare — Visits + SIA Billing', () => {
 
   test.beforeAll(async ({ browser }) => {
     sharedContext = await browser.newContext({
@@ -73,7 +95,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await sharedPage.waitForURL(/dashboard/, { timeout: TIMEOUTS.API });
     expect(sharedPage.url()).toContain('dashboard');
     await physicianNamePromise;
-    console.log('✅ Step 01: Logged in as MD');
+    console.log('Step 01: Logged in as MD');
   });
 
   // ===========================================================================
@@ -93,7 +115,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
 
     const result = await pages.patientWorkflow.addPatientFromFixture(hospiceFixture, { skipLogin: true });
     expect(result.success).toBeTruthy();
-    console.log(`✅ Step 02: Created patient ${result.patientFirstName} ${result.patientLastName} (ID: ${result.patientId})`);
+    console.log(`Step 02: Created patient ${result.patientFirstName} ${result.patientLastName} (ID: ${result.patientId})`);
   });
 
   // ===========================================================================
@@ -116,7 +138,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     expect(sharedPage.url()).toContain('patient-details');
 
     capturedPatientName = await pages.patientDetails.getPatientBillingName();
-    console.log(`✅ Step 03: Patient ${capturedPatientId} — name: ${capturedPatientName}`);
+    console.log(`Step 03: Patient ${capturedPatientId} — name: ${capturedPatientName}`);
   });
 
   // ===========================================================================
@@ -128,7 +150,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
       relation: 'Physician',
     });
     expect(result.success).toBeTruthy();
-    console.log('✅ Caller information added');
+    console.log('Caller information added');
   });
 
   test('Step 04b: Add Referrer Information', async () => {
@@ -136,7 +158,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
       sameAsCaller: true,
     });
     expect(result.success).toBeTruthy();
-    console.log('✅ Referrer information added');
+    console.log('Referrer information added');
   });
 
   test('Step 04c: Add Referring Physician', async () => {
@@ -144,7 +166,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
       sameAsReferrer: true,
     });
     expect(result.success).toBeTruthy();
-    console.log('✅ Referring physician added');
+    console.log('Referring physician added');
   });
 
   test('Step 04d: Add Ordering Physician', async () => {
@@ -152,7 +174,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
       sameAsReferringPhysician: true,
     });
     expect(result.success).toBeTruthy();
-    console.log('✅ Ordering physician added');
+    console.log('Ordering physician added');
   });
 
   // ===========================================================================
@@ -160,10 +182,9 @@ test.describe.serial('E2E Hospice Medicare', () => {
   // ===========================================================================
   test('Step 05: Add Routine Home Care LOC', async () => {
     await pages.locWorkflow.addLOCOrder('Routine Home Care', {
-      careLocationType: 'Q5004',
       startDate: ADMIT_DATE,
     });
-    console.log('✅ Routine Home Care LOC added');
+    console.log('Routine Home Care LOC added');
   });
 
   // ===========================================================================
@@ -173,7 +194,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await pages.diagnosisWorkflow.fillDiagnosisDetails('add', {
       primaryDiagnosis: { searchText: 'C801', optionIndex: 0 },
     });
-    console.log('✅ Primary diagnosis added');
+    console.log('Primary diagnosis added');
   });
 
   test('Step 06b: Verify Profile checkmark', async () => {
@@ -187,7 +208,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await pages.careTeamWorkflow.navigateToCareTeam();
     await pages.careTeamWorkflow.selectCareTeam();
     await pages.careTeamWorkflow.addStandardRoles();
-    console.log('✅ Care team and standard roles added');
+    console.log('Care team and standard roles added');
   });
 
   test('Step 07b: Add Attending Physician', async () => {
@@ -196,12 +217,12 @@ test.describe.serial('E2E Hospice Medicare', () => {
     const count = await pages.careTeamWorkflow.getAttendingPhysicianCount();
     expect(count).toBeGreaterThan(0);
     capturedAttendingPhysician = await pages.careTeamWorkflow.getAttendingPhysicianName();
-    console.log(`✅ Attending physician added — ${capturedAttendingPhysician}`);
+    console.log(`Attending physician added — ${capturedAttendingPhysician}`);
   });
 
   test('Step 07c: Add Caregiver', async () => {
     await pages.careTeamWorkflow.fillCaregiverDetails('add');
-    console.log('✅ Caregiver added');
+    console.log('Caregiver added');
   });
 
   test('Step 07d: Verify Care Team checkmark', async () => {
@@ -215,7 +236,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await pages.benefitsWorkflow.fillBenefitDetails('add', [], 'Hospice', 'Primary',
       createBenefitData({ payerEffectiveDate: ADMIT_DATE, benefitPeriodStartDate: ADMIT_DATE }));
     capturedPayerName = await pages.benefitsWorkflow.getPayerNameByLevel('Primary');
-    console.log(`✅ Benefit added — payer: ${capturedPayerName}`);
+    console.log(`Benefit added — payer: ${capturedPayerName}`);
   });
 
   test('Step 08b: Verify Benefits checkmark', async () => {
@@ -227,7 +248,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
   // ===========================================================================
   test('Step 09a: Add Consents', async () => {
     await pages.consentsWorkflow.fillConsents('yes');
-    console.log('✅ Consents completed');
+    console.log('Consents completed');
   });
 
   test('Step 09b: Verify Consents checkmark', async () => {
@@ -247,7 +268,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     const writtenExists = await pages.certification.isWrittenCertificationVisible(0);
     expect(writtenExists).toBeTruthy();
     capturedCertifyingPhysician = await pages.certification.getWrittenCertifyingPhysicianName();
-    console.log(`✅ Written certification added — certifying: ${capturedCertifyingPhysician}`);
+    console.log(`Written certification added — certifying: ${capturedCertifyingPhysician}`);
   });
 
   test('Step 10c: Verify Certifications checkmark', async () => {
@@ -261,7 +282,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
     await pages.admitPatientWorkflow.verifyAllSectionsComplete();
     await pages.admitPatientWorkflow.admitPatient(ADMIT_DATE);
     await pages.admitPatientWorkflow.verifyAdmissionSuccess();
-    console.log(`✅ Step 11: Patient admitted (date: ${ADMIT_DATE})`);
+    console.log(`Step 11: Patient admitted (date: ${ADMIT_DATE})`);
   });
 
   // ===========================================================================
@@ -269,8 +290,7 @@ test.describe.serial('E2E Hospice Medicare', () => {
   // ===========================================================================
   test('Step 12: Wait for claims to generate', async () => {
     test.setTimeout(TEST_TIMEOUTS.EXTENDED);
-    console.log('🔍 Waiting for claims to generate (polling Review tab, up to 90s)...');
-
+    console.log('Waiting for claims to generate (polling Review tab)...');
 
     await expect(async () => {
       await pages.billingWorkflow.navigateToBillingClaims('Review');
@@ -280,11 +300,11 @@ test.describe.serial('E2E Hospice Medicare', () => {
       await pages.claims.assertClaimTypeVisible('813');
     }).toPass({ timeout: 120_000, intervals: [5_000] });
 
-    console.log('✅ Step 12: 2 claims (812 + 813) detected in Review tab');
+    console.log('Step 12: 2 claims (812 + 813) detected in Review tab');
   });
 
   // ===========================================================================
-  // STEP 13: Verify 812 claim has NOE-related errors (2 errors only — no cert gap)
+  // STEP 13: Verify 812 claim has NOE-related errors
   // ===========================================================================
   test('Step 13: Verify 812 claim errors', async () => {
     await pages.billingWorkflow.navigateToBillingClaims('Review');
@@ -300,250 +320,161 @@ test.describe.serial('E2E Hospice Medicare', () => {
     const errors = await pages.claims.getErrorMessages();
     expect(errors).toContain('NOE has not been submitted');
     expect(errors).toContain('Missing Notice Accepted Date');
-    console.log(`✅ Step 13: 812 has 2 errors — NOE + Notice Accepted Date`);
+    console.log('Step 13: 812 has 2 errors — NOE + Notice Accepted Date');
   });
 
   // ===========================================================================
-  // STEP 14: Verify Notice in Ready > Notices tab
+  // STEP 14: Login as RN and navigate to Care Plan for visits
   // ===========================================================================
-  test('Step 14: Verify Notice in Ready > Notices tab', async () => {
+  test('Step 14: Login as RN and navigate to patient Care Plan', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.login.loginAsRole('RN');
+    TestDataManager.setRole('RN');
 
-    await pages.claims.navigateTo('Ready', 'Notices');
-    await pages.claims.searchByPatient(capturedPatientId);
-    await pages.claims.assertClaimCount(1);
-    await pages.claims.assertClaimTypeVisible('81A');
-    console.log('✅ Step 14: 1 Notice (81A) found in Ready > Notices tab');
+    await pages.dashboard.navigateToModule('Patient');
+    await pages.patient.searchPatient(capturedPatientId);
+    await pages.patient.getPatientFromGrid(0);
+    await pages.carePlan.navigateToCarePlan();
+    console.log('Step 14: Logged in as RN, on Care Plan');
   });
 
   // ===========================================================================
-  // STEP 15: Verify NOE claim details in Ready > Notices
+  // STEP 15: Create, record, and complete INA visit (RN)
   // ===========================================================================
-  test('Step 15: Verify NOE claim details — all fields + no RLIS + UB04', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
-
-    const expectedNotice: NoticeExpectedData = {
-      patientName: capturedPatientName,
-      payerName: capturedPayerName,
-      patientChartId: capturedPatientId,
-      serviceStart: ADMIT_DATE,
-      serviceEnd: '-',
-      daysSinceAdmit: DateHelper.calculateDaysSinceAdmit(ADMIT_DATE),
-      billType: '81A',
-      siaAmount: '$0.00',
-      claimTotalAmount: '$0.00',
-      conditionCode: '-',
-    };
-
-    const actual = await pages.billingWorkflow.verifyNoticeClaimDetails(capturedPatientId, expectedNotice);
-    console.log(`✅ Step 15: NOE verified — ${actual.patientName} | ${actual.payerName} | RLIS absent | UB04 visible`);
+  test('Step 15a: Create INA visit', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.createVisitByType('INA');
+    console.log('Step 15a: INA visit created via config');
   });
 
-  // ===========================================================================
-  // STEP 16: Download UB04 PDF and verify form fields
-  // ===========================================================================
-  test('Step 16: Verify UB-04 PDF contents', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
+  test('Step 15b: Record INA visit (BP + Narrative + HIS preview)', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.recordINAVisit();
+    console.log('Step 15b: INA visit recorded');
+  });
 
-    const claimId = await pages.claims.getRowFieldValue(0, 'claimId');
-
-    const ub04Expected = buildNoticeUb04Expected({
-      claimId,
-      chartId: capturedPatientId,
-      patientName: capturedPatientName,
-      payerName: capturedPayerName,
-      admitDate: ADMIT_DATE,
-      bpsd: ADMIT_DATE,
+  test('Step 15c: Complete INA visit (signature + dates)', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.completeVisitByType('INA', {
+      visitDate: INA_VISIT_DATE,
     });
+    console.log(`Step 15c: INA visit completed — ${INA_VISIT_DATE}`);
+  });
 
-    await pages.billingWorkflow.verifyClaimUb04(capturedPatientId, ub04Expected, 'Notices');
-    console.log(`✅ Step 16: UB-04 PDF verified — Box 4=81A, Box 14=3, Box 15=9, Box 17=30, Box 31=27, no RLIS`);
+  test('Step 15d: Verify INA visit in Care Plan grid', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.carePlan.waitForVisitCompletionDialogs();
+
+    // Navigate away then back to force visits grid reload
+    await pages.patientDetails.clickSidebarTab('profile');
+    await pages.carePlan.navigateToCarePlan();
+
+    const visitRow = await pages.carePlan.findVisitByType('Initial Nursing Assessment');
+    expect(visitRow).toBeGreaterThanOrEqual(0);
+    const status = await pages.carePlan.getVisitStatus(visitRow);
+    expect(status).toBe('Completed');
+    console.log('Step 15d: INA visit verified — Completed');
   });
 
   // ===========================================================================
-  // STEP 17: Navigate to patient and add Notice Accepted Date
+  // STEP 16: Create, record, and complete Postmortem visit (RN)
+  // WARNING: This discharges the patient as Expired
   // ===========================================================================
-  test('Step 17: Edit Benefits — add Notice Accepted Date', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
+  test('Step 16a: Create Postmortem visit', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.createVisitByType('POSTMORTEM');
+    console.log('Step 16a: Postmortem visit created via config');
+  });
 
-    // Navigate back to patient record
-    await sharedPage.goto(`${CredentialManager.getBaseUrl()}/#/referral-tabs/patient/patient-details/${capturedPatientId}`);
-    await sharedPage.waitForLoadState('networkidle');
-    await sharedPage.waitForTimeout(TIMEOUTS.MEDIUM);
+  test('Step 16b: Record Postmortem visit (Death Assessment + BP + Narrative)', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.recordPostmortemVisit({
+      month: DEATH_MONTH,
+      day: DEATH_DAY,
+      year: DEATH_YEAR,
+      hour: '10',
+      minute: '00',
+    });
+    console.log('Step 16b: Postmortem visit recorded');
+  });
 
-    await pages.benefitsWorkflow.fillBenefitDetails(
-      'edit',
-      ['noticeAcceptedDate'],
-      'Hospice',
-      'Primary',
-      { noticeAcceptedDate: ADMIT_DATE }
-    );
-    console.log('✅ Step 17: Notice Accepted Date added');
+  test('Step 16c: Complete Postmortem visit (Discharge as Expired)', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.visitWorkflow.completeVisitByType('POSTMORTEM', {
+      visitDate: POSTMORTEM_VISIT_DATE,
+      startTime: { hours: '10', minutes: '00' },
+      endTime: { hours: '10', minutes: '30' },
+    });
+    console.log('Step 16c: Postmortem visit completed — patient discharged as Expired');
+  });
+
+  test('Step 16d: Verify Postmortem visit in Care Plan grid', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+
+    // Navigate away then back to force visits grid reload
+    await pages.patientDetails.clickSidebarTab('profile');
+    await pages.carePlan.navigateToCarePlan();
+
+    const visitRow = await pages.carePlan.findVisitByType('Postmortem Encounter');
+    expect(visitRow).toBeGreaterThanOrEqual(0);
+    const status = await pages.carePlan.getVisitStatus(visitRow);
+    expect(status).toBe('Completed');
+    console.log('Step 16d: Postmortem visit verified — Completed');
   });
 
   // ===========================================================================
-  // STEP 18: Submit NOE from Ready > Notices
+  // STEP 17: Re-login as MD and verify billing claims updated after visits
   // ===========================================================================
-  test('Step 18: Submit NOE — Generate Claim from Ready > Notices', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
-
-    await pages.billingWorkflow.submitNoeFromReady(capturedPatientId);
-    console.log('✅ Step 18: NOE submitted via Generate Claim');
+  test('Step 17a: Login as MD', async () => {
+    test.setTimeout(TEST_TIMEOUTS.LONG);
+    await pages.login.loginAsRole('MD');
+    TestDataManager.setRole('MD');
+    console.log('Step 17a: Logged in as MD');
   });
 
-  // ===========================================================================
-  // STEP 19: Verify 837 Batch > Notices + download options (single navigation)
-  // ===========================================================================
-  test('Step 19: Verify NOE in 837 Batch + verify download formats [837, CSV]', async () => {
+  test('Step 17b: Verify 814 discharge claim — SIA + service end = death date', async () => {
     test.setTimeout(TEST_TIMEOUTS.EXTENDED);
 
-    const { detail, availableFormats } = await pages.billingWorkflow.verifyAndDownloadNoeIn837Batch(
-      capturedPatientId, capturedPayerName, '837'
-    );
-    expect(detail.patientId).toBe(capturedPatientId);
-    expect(availableFormats).toContain('837');
-    expect(availableFormats).toContain('CSV');
-    console.log(`✅ Step 19: 837 Batch verified — Claim: ${detail.claimId} | Formats: [${availableFormats.join(', ')}]`);
-  });
-
-  // ===========================================================================
-  // STEP 20: Verify AR > Notices + download options (single navigation)
-  // ===========================================================================
-  test('Step 20: Verify NOE in AR + verify download formats [UB-04, 837, CSV]', async () => {
-    test.setTimeout(TEST_TIMEOUTS.EXTENDED);
-
-    const { arData, availableFormats } = await pages.billingWorkflow.verifyAndDownloadNoeInAR(
-      capturedPatientId, capturedPayerName, capturedPatientName, 'UB-04'
-    );
-    expect(arData.status).toBe('Submitted');
-    expect(arData.billedAmount).toBe('$0.00');
-    expect(availableFormats).toContain('UB-04');
-    expect(availableFormats).toContain('837');
-    expect(availableFormats).toContain('CSV');
-    console.log(`✅ Step 20: AR verified — Status: ${arData.status} | Formats: [${availableFormats.join(', ')}]`);
-  });
-
-  // ===========================================================================
-  // STEP 21: Wait for 812 to move to Ready > Claims
-  // ===========================================================================
-  test('Step 21: Wait for 812 claim to move to Ready > Claims', async () => {
-    test.setTimeout(120_000);
-
+    // Poll for 814 claim with non-zero SIA (visits need time to reflect)
     await expect(async () => {
-      await pages.billingWorkflow.navigateToBillingClaims('Ready');
+      await pages.billingWorkflow.navigateToBillingClaims('Review');
       await pages.claims.searchByPatient(capturedPatientId);
-      await pages.claims.assertClaimTypeVisible('812');
-    }).toPass({ timeout: 90_000, intervals: [5_000] });
+      await pages.claims.assertClaimTypeVisible('814');
 
-    console.log('✅ Step 21: 812 claim moved to Ready > Claims');
+      const row814 = await pages.claims.findRowByPatientAndBillType(capturedPatientId, '814');
+      expect(row814).toBeGreaterThanOrEqual(0);
+
+      const siaAmount = await pages.claims.getRowFieldValue(row814, 'siaAmount');
+      expect(siaAmount).not.toBe('$0.00');
+    }).toPass({ timeout: 120_000, intervals: [5_000] });
+
+    const row814 = await pages.claims.findRowByPatientAndBillType(capturedPatientId, '814');
+    const billType = await pages.claims.getRowFieldValue(row814, 'billType');
+    const siaAmount = await pages.claims.getRowFieldValue(row814, 'siaAmount');
+    const serviceEnd = await pages.claims.getRowFieldValue(row814, 'serviceEnd');
+    const claimTotal = await pages.claims.getRowFieldValue(row814, 'claimTotalAmount');
+
+    // Service end must equal death date (yesterday)
+    expect(serviceEnd).toBe(POSTMORTEM_VISIT_DATE);
+    expect(billType).toBe('814');
+    expect(siaAmount).not.toBe('$0.00');
+
+    console.log(`Step 17b: 814 verified — bill type: ${billType}, service end: ${serviceEnd}, SIA: ${siaAmount}, total: ${claimTotal}`);
   });
 
-  // ===========================================================================
-  // STEP 23: Verify 812 claim details — PDF link + RLIS present
-  // ===========================================================================
-  test('Step 22: Verify 812 claim details in Ready > Claims', async () => {
+  test('Step 17c: Verify 814 RLIS — visit revenue line items present', async () => {
     test.setTimeout(TEST_TIMEOUTS.STANDARD);
 
-    const rowIndex = await pages.claims.findRowByPatientAndBillType(capturedPatientId, '812');
-    expect(rowIndex).toBeGreaterThanOrEqual(0);
+    await pages.billingWorkflow.navigateToBillingClaims('Review');
+    await pages.claims.searchByPatient(capturedPatientId);
 
-    const claimId = await pages.claims.getRowFieldValue(rowIndex, 'claimId');
-    const serviceStart = await pages.claims.getRowFieldValue(rowIndex, 'serviceStart');
-    const serviceEnd = await pages.claims.getRowFieldValue(rowIndex, 'serviceEnd');
+    const row814 = await pages.claims.findRowByPatientAndBillType(capturedPatientId, '814');
+    expect(row814).toBeGreaterThanOrEqual(0);
 
-    expect(serviceStart).toBe(ADMIT_DATE);
-    expect(serviceEnd).not.toBe('-');
-
-    await pages.claims.assertPdfLinkVisible(rowIndex);
-    await pages.claims.expandClaimRow(rowIndex);
+    await pages.claims.expandClaimRow(row814);
     await pages.claims.switchClaimDetailTab('Claim Details');
     await pages.claims.assertRlisDataPresent();
 
-    console.log(`✅ Step 22: 812 verified — Claim: ${claimId} | Service: ${serviceStart} - ${serviceEnd} | PDF + RLIS`);
-  });
-
-  // ===========================================================================
-  // STEP 24: Download 812 PDF and verify UB-04 fields
-  // ===========================================================================
-  test('Step 23: Download 812 PDF and verify UB-04 fields', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
-
-    await pages.claims.navigateTo('Ready', 'Claims');
-    await pages.claims.searchByPatient(capturedPatientId);
-
-    const rowIndex = await pages.claims.findRowByPatientAndBillType(capturedPatientId, '812');
-    expect(rowIndex).toBeGreaterThanOrEqual(0);
-
-    const claimId = await pages.claims.getRowFieldValue(rowIndex, 'claimId');
-    const serviceEnd = await pages.claims.getRowFieldValue(rowIndex, 'serviceEnd');
-
-    // Care team format: "FirstName LastName" → last word is last name
-    const attendingParts = capturedAttendingPhysician.trim().split(/\s+/);
-    const attendingLastName = attendingParts[attendingParts.length - 1];
-    // Cert format: "LastName, FirstName (Role)" → first part before comma
-    const certifyingLastName = capturedCertifyingPhysician.split(',')[0].trim();
-
-    const expected = buildClaimUb04Expected({
-      claimId,
-      chartId: capturedPatientId,
-      patientName: capturedPatientName,
-      payerName: capturedPayerName,
-      billType: '812',
-      fromDate: ADMIT_DATE,
-      throughDate: serviceEnd,
-      admitDate: ADMIT_DATE,
-      bpsd: ADMIT_DATE,
-      attendingLastName,
-    });
-
-    // Use the workflow's full UB-04 verification (covers all boxes including Box 76 attending)
-    await pages.billingWorkflow.verifyClaimUb04(capturedPatientId, expected, 'Claims');
-
-    console.log(`✅ Step 23: 812 PDF verified — Claim: ${claimId} | Attending: ${attendingLastName}`);
-  });
-
-  // ===========================================================================
-  // STEP 24: Submit 812 from Ready > Claims
-  // ===========================================================================
-  test('Step 24: Submit 812 claim from Ready', async () => {
-    test.setTimeout(TEST_TIMEOUTS.STANDARD);
-
-    await pages.billingWorkflow.submitClaimFromReady(capturedPatientId, '812');
-
-    console.log(`✅ Step 24: 812 claim submitted from Ready > Claims`);
-  });
-
-  // ===========================================================================
-  // STEP 25: Verify 812 in 837 Batch > Claims — format: 837 only
-  // ===========================================================================
-  test('Step 25: Verify 812 in 837 Batch and download', async () => {
-    test.setTimeout(TEST_TIMEOUTS.EXTENDED);
-
-    const { detail, availableFormats } = await pages.billingWorkflow.verifyAndDownloadClaimIn837Batch(
-      capturedPatientId,
-      capturedPayerName,
-      '837'
-    );
-
-    expect(availableFormats).toContain('837');
-    console.log(`✅ Step 25: 837 Batch verified — Claim: ${detail.claimId} | Formats: [${availableFormats.join(', ')}]`);
-  });
-
-  // ===========================================================================
-  // STEP 26: Verify 812 in AR > Claims — status=Submitted, billedAmount != $0.00
-  // ===========================================================================
-  test('Step 26: Verify 812 in AR and download', async () => {
-    test.setTimeout(TEST_TIMEOUTS.EXTENDED);
-
-    const { arData, availableFormats } = await pages.billingWorkflow.verifyAndDownloadClaimInAR(
-      capturedPatientId,
-      capturedPayerName,
-      capturedPatientName,
-      '837'
-    );
-
-    expect(arData.status).toBe('Submitted');
-    expect(arData.billedAmount).not.toBe('$0.00');
-    expect(availableFormats).toContain('837');
-    console.log(`✅ Step 26: AR verified — Status: ${arData.status} | Billed: ${arData.billedAmount} | Formats: [${availableFormats.join(', ')}]`);
+    console.log('Step 17c: 814 RLIS verified — visit revenue line items present');
   });
 });

@@ -100,6 +100,7 @@ export const CARE_TEAM_NAMES: Record<string, Record<string, string>> = {
   },
   staging: {
     cth: 'Team 1',
+    ch: 'Addison',
   },
   prod: {
     cth: 'Automation',

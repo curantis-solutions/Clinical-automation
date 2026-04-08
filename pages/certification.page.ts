@@ -69,8 +69,11 @@ export class CertificationPage extends BasePage {
     certToggleIcon: '[data-cy="icon-cert-toggle"]',
 
     // === Certification Row Actions (Referral View) ===
+    // Current cert (topmost row): btn-certification-written-options-0
+    // Previous certs (descending): btn-previous-written-certification-options0, ...options1
     certificationOptions: (index: number) => `[data-cy="btn-certification-options-${index}"]`,
     certificationWrittenOptions: (index: number) => `[data-cy="btn-certification-written-options-${index}"]`,
+    previousCertificationWrittenOptions: (index: number) => `[data-cy="btn-previous-written-certification-options${index}"]`,
     certificationDetails: (index: number) => `[data-cy="btn-certification-details-options-${index}"]`,
     certificationWrittenDetails: (index: number) => `[data-cy="btn-certifications-written-details-${index}"]`,
     editMenuItem: 'button:has-text("Edit")',
@@ -298,12 +301,29 @@ export class CertificationPage extends BasePage {
   // List / Details View — Row Actions (Referral View)
   // ============================================
 
+  /**
+   * Open the current (topmost) Written cert for editing.
+   * Uses btn-certification-written-options-{index}.
+   */
   async openWrittenCertificationEdit(index: number = 0): Promise<void> {
     await this.page.locator(this.selectors.certificationWrittenOptions(index)).click();
     await this.page.waitForTimeout(500);
     await this.page.locator(this.selectors.editMenuItem).click();
     await this.page.waitForTimeout(1000);
-    console.log(`Opened Written certification ${index} in edit mode`);
+    console.log(`Opened current Written certification ${index} in edit mode`);
+  }
+
+  /**
+   * Open a previous (non-current) Written cert for editing.
+   * Grid is descending: index 0 = second-most-recent BP, index 1 = third, etc.
+   * Uses btn-previous-written-certification-options{index}.
+   */
+  async openPreviousWrittenCertificationEdit(index: number = 0): Promise<void> {
+    await this.page.locator(this.selectors.previousCertificationWrittenOptions(index)).click();
+    await this.page.waitForTimeout(500);
+    await this.page.locator(this.selectors.editMenuItem).click();
+    await this.page.waitForTimeout(1000);
+    console.log(`Opened previous Written certification ${index} in edit mode`);
   }
 
   async openVerbalCertificationEdit(index: number = 0): Promise<void> {

@@ -67,6 +67,11 @@ export const testData: Record<string, EnvironmentTestData> = {
       careTeam: 'ACypressIDG',
       receivedBy: 'MDcypress cypresslast',
     },
+    ch: {
+      physician: 'Cypresslast',
+      careTeam: 'Addison',
+      receivedBy: 'MDcypress cypresslast',
+    },
   },
 
   // Production Environment

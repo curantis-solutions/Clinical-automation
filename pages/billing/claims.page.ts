@@ -3,6 +3,7 @@ import { BasePage } from '../base.page';
 import { TIMEOUTS } from '../../config/timeouts';
 import { NoticeExpectedData, NoticeRowData, NonCoveredDetail } from '../../types/billing.types';
 import { PdfHelper } from '../../utils/pdf-helper';
+import { DateHelper } from '../../utils/date-helper';
 import { selectDateFromPicker } from '../../utils/form-helpers';
 
 /**
@@ -200,6 +201,53 @@ export class ClaimsPage extends BasePage {
       if (chartId === patientId && type === billType) return i;
     }
     return -1;
+  }
+
+  /**
+   * Find the first row whose service end date falls within a date range.
+   * Used to identify which claim falls in a specific benefit period.
+   * @param rangeStart - Range start date in MM/DD/YYYY format (BPSD)
+   * @param rangeEnd - Range end date in MM/DD/YYYY format (BPED)
+   * @returns 0-based row index, or -1 if not found
+   */
+  async findRowByServiceEndDateInRange(rangeStart: string, rangeEnd: string): Promise<number> {
+    const rowCount = await this.getVisibleRowCount();
+    const start = DateHelper.parseDate(rangeStart);
+    const end = DateHelper.parseDate(rangeEnd);
+    for (let i = 0; i < rowCount; i++) {
+      const endDateStr = await this.getRowFieldValue(i, 'serviceEnd');
+      if (!endDateStr || endDateStr === '-') continue;
+      const endDate = DateHelper.parseDate(endDateStr);
+      if (endDate >= start && endDate <= end) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Find the row with the earliest service end date within a date range.
+   * Used to identify the first claim in a specific benefit period.
+   * @param rangeStart - Range start date in MM/DD/YYYY format (BPSD)
+   * @param rangeEnd - Range end date in MM/DD/YYYY format (BPED)
+   * @returns 0-based row index of the earliest match, or -1 if not found
+   */
+  async findEarliestRowByServiceEndDateInRange(rangeStart: string, rangeEnd: string): Promise<number> {
+    const rowCount = await this.getVisibleRowCount();
+    const start = DateHelper.parseDate(rangeStart);
+    const end = DateHelper.parseDate(rangeEnd);
+    let earliestRow = -1;
+    let earliestDate: Date | null = null;
+    for (let i = 0; i < rowCount; i++) {
+      const endDateStr = await this.getRowFieldValue(i, 'serviceEnd');
+      if (!endDateStr || endDateStr === '-') continue;
+      const endDate = DateHelper.parseDate(endDateStr);
+      if (endDate >= start && endDate <= end) {
+        if (!earliestDate || endDate < earliestDate) {
+          earliestDate = endDate;
+          earliestRow = i;
+        }
+      }
+    }
+    return earliestRow;
   }
 
   // ── Grid Assertions ──

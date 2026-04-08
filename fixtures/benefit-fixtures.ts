@@ -26,11 +26,12 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
       integrum: { Medicare: 'Medicare A', Medicaid: 'Medicaid Hospice', Commercial: 'A hospice rate1' },
     },
     staging: {
-      cth: { Medicare: '', Medicaid: '', Commercial: '' }, 
+      cth: { Medicare: '', Medicaid: '', Commercial: '' },
+      ch: { Medicare: 'Medicare b', Medicaid: '', Commercial: '' },
     },
     prod: {
-      cth: { Medicare: 'Medicare A', Medicaid: 'Automation Medicaid', Commercial: 'All Commercial' },  
-      cch: { Medicare: 'Medicare A', Medicaid: 'Medicaid', Commercial: 'Cypress Payer' },  
+      cth: { Medicare: 'Medicare A', Medicaid: 'Automation Medicaid', Commercial: 'All Commercial' },
+      cch: { Medicare: 'Medicare A', Medicaid: 'Medicaid', Commercial: 'Cypress Payer' },
     },
   },
   Palliative: {
@@ -39,7 +40,8 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
       integrum: { Medicare: 'Medicare Part A', Medicaid: 'Medicaid SIA', Commercial: 'All Payer' },
     },
     staging: {
-      cth: { Medicare: '', Medicaid: '', Commercial: '' },   
+      cth: { Medicare: '', Medicaid: '', Commercial: '' },
+      ch: { Medicare: 'Medicare b', Medicaid: '', Commercial: '' },
     },
     prod: {
       cth: { Medicare: 'Medicare A', Medicaid: 'Medicaid Prod', Commercial: 'Aetna' },
@@ -52,7 +54,8 @@ export const PAYER_NAMES: Record<BenefitType, Record<string, Record<string, Part
       integrum: { Medicaid: 'Medicaid QA', Commercial: 'A hospice rate1' },
     },
     staging: {
-      cth: { Medicaid: '', Commercial: '' }, 
+      cth: { Medicaid: '', Commercial: '' },
+      ch: { Medicaid: '', Commercial: '' },
     },
     prod: {
       cth: { Medicaid: 'A rb payer', Commercial: 'All Commercial' },

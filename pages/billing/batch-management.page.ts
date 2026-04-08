@@ -183,13 +183,15 @@ export class BatchManagementPage extends BasePage {
   async openBatchOptionsAndGetFormats(): Promise<string[]> {
     const batchOptionsBtn = this.page.getByRole('button', { name: 'Batch Options' });
     await batchOptionsBtn.click();
-    await this.page.waitForTimeout(500);
+
+    // Wait for the modal download list to fully render with at least one item
+    const downloadList = this.page.locator('ion-modal ion-list').first();
+    await downloadList.locator('ion-item').first().waitFor({ state: 'visible', timeout: 5000 });
 
     // Modal renders both "Download Files" and "Send Electronic" sections with duplicate ion-items.
     // Scope to first ion-list (Download Files) to avoid strict mode violations.
-    const downloadList = this.page.locator('ion-modal ion-list').first();
     const formats: string[] = [];
-    for (const name of ['837', 'CSV']) {
+    for (const name of ['837', 'CSV', 'UB-04']) {
       const item = downloadList.locator('ion-item').filter({ hasText: name });
       if (await item.count() > 0) formats.push(name);
     }

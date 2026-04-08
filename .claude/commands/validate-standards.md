@@ -55,9 +55,17 @@ Workflows must delegate ALL selectors to page objects.
 
 ## Page Object Files (`pages/**/*.ts`)
 
-### 1. Selectors Outside `selectors` Object
-- Any `data-cy` string or locator string used directly in a method body instead of `this.selectors.*`
-- All selectors MUST be in the `private readonly selectors` object at the top of the class
+### 1. Selectors Outside `selectors` Object (CRITICAL)
+All CSS selectors, `data-cy` strings, and DOM query strings MUST live in `private readonly selectors = { ... }` at the top of the class. Method bodies must reference them via `this.selectors.*`.
+
+**How to detect:**
+1. Read the file and identify the line range of the `selectors` object (from `private readonly selectors = {` to its closing `};`).
+2. Grep the file for these patterns: `data-cy=`, `#someId`, `[data-cy=`, `.className`, `ion-modal `, `input[type=`, `getByRole(`, `getByText(`, `getByPlaceholder(`, `getByTestId(`.
+3. For each match, check if it falls **inside** the selectors object range → OK (that's where they belong).
+4. If the match is **outside** the selectors range and is NOT in a comment (`//` or `/* */`) → **VIOLATION**.
+5. Acceptable exceptions: `this.selectors.*` references, `this.page.evaluate()` callbacks that build selectors from variables, and `ion-modal` used only for scoping (e.g., `this.page.locator('ion-modal')`).
+
+**Fix:** Move the string to the `selectors` object with a descriptive name, then reference it as `this.selectors.newName` in the method body.
 
 ### 2. Inline `waitForGridStable`
 - Any custom grid-waiting logic (while loop with count comparison) instead of calling `this.waitForGridStable()` from BasePage

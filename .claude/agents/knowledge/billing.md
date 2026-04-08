@@ -133,6 +133,13 @@
 - **Admit date**: `DateHelper.getDateOfMonth()` — 1st of previous month
 - **Claim ID**: read from billing grid `getRowFieldValue(0, 'claimId')` at verification time
 
+## Benefit Period Durations (Medicare Hospice)
+- BP1: 90 days
+- BP2: 90 days
+- BP3+: 60 days each (unlimited)
+- Calculate: BP1_END = admitDate + 89 days, BP2_START = BP1_END + 1, etc.
+- Use `DateHelper.addDaysToDate()` for dynamic BP calculations — never hardcode dates
+
 ## Claim Bill Types
 | Type | Scenario |
 |------|----------|
@@ -165,6 +172,7 @@
 - `tests/billing/non-covered-days-late-cert-hospice-medicare.spec.ts` — 22 steps: CR-2992 non-covered days (Late Certification) + code 77
 - `tests/billing/non-covered-days-late-notice-hospice-medicare.spec.ts` — 20 steps: CR-2992 non-covered days (Late Notice) + code 77
 - `tests/billing/reprocessing-hospice-medicare.spec.ts` — 20 steps: error fix + reprocessing
+- `tests/billing/face-to-face-hospice-medicare.spec.ts` — 15 steps: CR-2993 F2F visit validation (visit recording selectors in `knowledge/visits.md`)
 
 ## File Map
 ```
