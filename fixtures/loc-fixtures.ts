@@ -8,8 +8,9 @@
  */
 export const CARE_LOCATIONS: Record<string, Record<string, Record<string, string>>> = {
   'Q5004': {  // Skilled Nursing
-    qa:   { cth: 'Bear Creek SNF', integrum: 'Addison Facility' },
-    prod: { cth: 'Sun Skilled Nursing FAcility', cch: 'Addison Manor' },
+    qa:      { cth: 'Bear Creek SNF', integrum: 'Addison Facility' },
+    staging: { ch: 'skillednursingfacilitytest' },
+    prod:    { cth: 'Sun Skilled Nursing FAcility', cch: 'Addison Manor' },
   },
   'Q5002': {  // Assisted Living
     qa:   { cth: 'Allen Assisted Facility', integrum: 'AssistedTestFacility' },

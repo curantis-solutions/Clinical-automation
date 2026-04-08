@@ -1,5 +1,8 @@
 import { Page, expect } from '@playwright/test';
 import { BasePage } from './base.page';
+import { CredentialManager } from '../utils/credential-manager';
+import { AuthHelper } from '../utils/auth.helper';
+import { TIMEOUTS } from '../config/timeouts';
 
 export class LoginPage extends BasePage {
   // Define selectors as private readonly properties
@@ -94,6 +97,27 @@ export class LoginPage extends BasePage {
       }
       throw error;
     }
+  }
+
+  /**
+   * Switch to a different role by logging out, then logging in with new role credentials.
+   * Handles the full flow: logout → goto login → fill credentials → submit → wait for dashboard.
+   * Safe to call even if already on login page (skips logout).
+   * @param role - Role key (e.g., 'MD', 'RN', 'SW')
+   * @param tenant - Optional tenant override (defaults to env TENANT)
+   */
+  async loginAsRole(role: string, tenant?: string): Promise<void> {
+    // Logout first if currently logged in (on dashboard/app page, not login page)
+    const onLoginPage = await this.isLoginPageDisplayed().catch(() => false);
+    if (!onLoginPage) {
+      await AuthHelper.logout(this.page);
+    }
+
+    await this.goto();
+    const credentials = CredentialManager.getCredentials(undefined, role, tenant);
+    await this.login(credentials.username, credentials.password);
+    await this.page.waitForURL(/dashboard/, { timeout: TIMEOUTS.API });
+    console.log(`Logged in as ${role}`);
   }
 
   /**

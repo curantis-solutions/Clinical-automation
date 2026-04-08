@@ -2447,7 +2447,7 @@ export class PatientDetailsPage extends BasePage {
    * Picker is opened by clicking #admitDate, confirmed with .picker-toolbar-button button.
    * @param dateString - Date in MM/DD/YYYY format
    */
-  private async selectAdmitDate(dateString: string): Promise<void> {
+  async selectAdmitDate(dateString: string): Promise<void> {
     const [month, day, year] = dateString.split('/');
     const monthPadded = month.padStart(2, '0');
     const dayPadded = day.padStart(2, '0');
@@ -2571,10 +2571,16 @@ export class PatientDetailsPage extends BasePage {
       }
     };
 
-    // Select Year (3rd column), then Day (2nd column), then Month (1st column)
-    await selectInColumn(2, year);
-    await selectInColumn(1, dayPadded);
-    await selectInColumn(0, monthPadded);
+    // Ion-picker constrains month/day when selecting a past year.
+    // Workaround: select month 01 first (resets constraints), then year, then target month, then day.
+    // This ensures all month/day options are scrollable even for backdated dates.
+    const needsConstraintReset = year !== String(new Date().getFullYear());
+    if (needsConstraintReset) {
+      await selectInColumn(0, '01');        // Reset month to 01 to unlock constraints
+    }
+    await selectInColumn(2, year);          // Year
+    await selectInColumn(0, monthPadded);   // Target month (now unlocked)
+    await selectInColumn(1, dayPadded);     // Target day (now unlocked)
 
     // Click Done on the picker toolbar (last button — first is Cancel)
     await this.page.locator('.picker-toolbar-button button').last().click();

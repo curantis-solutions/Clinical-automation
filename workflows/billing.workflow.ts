@@ -168,7 +168,6 @@ export class BillingWorkflow {
     const detail = await this.batchPage.readDetailRowData(0);
     console.log(`  837 Batch (Claims): ${batchData.batchName} | Patient: ${detail.patientId} | Claim: ${detail.claimId}`);
 
-    await this.batchPage.searchBatch(patientId);
     const availableFormats = await this.batchPage.downloadBatch(0, format);
     console.log(`  837 Batch download (${format}) | Formats: [${availableFormats.join(', ')}]`);
 
@@ -206,7 +205,6 @@ export class BillingWorkflow {
     const detail = await this.batchPage.readDetailRowData(0);
     console.log(`  837 Batch: ${batchData.batchName} | Patient: ${detail.patientId} | Claim: ${detail.claimId}`);
 
-    await this.batchPage.searchBatch(patientId);
     const availableFormats = await this.batchPage.downloadBatch(0, format);
     console.log(`  837 Batch download (${format}) | Formats: [${availableFormats.join(', ')}]`);
 

@@ -44,10 +44,18 @@ export class CarePlanPage extends BasePage {
     filterStartDateTo: '[data-cy="filter-start-date-to"] input[id="date-value"]',
     clearFiltersBtn: '[data-cy="btn-clear-filters"]',
 
-    // Visits Grid columns
+    // Visits Grid — confirmed via MCP 2026-04-07
     visitGridHeader: 'ion-col:has-text("ID")',
     visitRows: '.visit-row, ion-row.data-row',
     noVisitsMessage: 'text=No visits found matching the selected filters',
+    visitId: '[data-cy="label-visit-id"]',
+    visitType: '[data-cy="label-visit-type"]',
+    visitDiscipline: '[data-cy="label-visit-discipline"]',
+    visitPerformedBy: '[data-cy="label-visit-performed-by"]',
+    visitStartDate: '[data-cy="label-visit-start-date"]',
+    visitEndDate: '[data-cy="label-visit-end-date"]',
+    visitDuration: '[data-cy="label-visit-duration"]',
+    visitStatus: '[data-cy="label-visit-status"]',
 
     // ============================================
     // Encounters/Flowsheet Section
@@ -178,6 +186,70 @@ export class CarePlanPage extends BasePage {
     await this.page.locator(this.selectors.clearFiltersBtn).click();
     await this.page.waitForTimeout(1000);
     console.log('Cleared visit filters');
+  }
+
+  /**
+   * Wait for post-completion dialogs to disappear.
+   * After completing a visit, two auto-dismiss dialogs appear:
+   *   1. "Completing Assessment..." (loading spinner)
+   *   2. "Visit completed successfully" (toast/notification)
+   * Both are ion-loading dialogs with no buttons — they auto-dismiss.
+   */
+  async waitForVisitCompletionDialogs(): Promise<void> {
+    await this.page.getByText('Visit completed successfully')
+      .waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
+    await this.page.waitForTimeout(1000);
+    console.log('Visit completion dialogs dismissed');
+  }
+
+  // ============================================
+  // Visits Grid — Read & Search
+  // ============================================
+
+  /**
+   * Get the count of visit rows in the grid.
+   */
+  async getVisitRowCount(): Promise<number> {
+    return await this.page.locator(this.selectors.visitType).count();
+  }
+
+  /**
+   * Find a visit row by type name (e.g., "Initial Nursing Assessment", "Face to Face Visit").
+   * @returns 0-based row index, or -1 if not found
+   */
+  async findVisitByType(type: string): Promise<number> {
+    const types = this.page.locator(this.selectors.visitType);
+    const count = await types.count();
+    for (let i = 0; i < count; i++) {
+      const text = await types.nth(i).textContent();
+      if (text?.trim() === type) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * Get the status of a visit at the given row index.
+   * @returns Status text (e.g., "Completed", "In Progress")
+   */
+  async getVisitStatus(rowIndex: number): Promise<string> {
+    const text = await this.page.locator(this.selectors.visitStatus).nth(rowIndex).textContent();
+    return (text || '').trim();
+  }
+
+  /**
+   * Get the visit ID at the given row index.
+   */
+  async getVisitId(rowIndex: number): Promise<string> {
+    const text = await this.page.locator(this.selectors.visitId).nth(rowIndex).textContent();
+    return (text || '').trim();
+  }
+
+  /**
+   * Get the start date of a visit at the given row index.
+   */
+  async getVisitStartDate(rowIndex: number): Promise<string> {
+    const text = await this.page.locator(this.selectors.visitStartDate).nth(rowIndex).textContent();
+    return (text || '').trim();
   }
 
   // ============================================

@@ -80,8 +80,14 @@ export class CertificationWorkflow {
       await this.formPage.clickAddCertification();
     } else {
       // Edit mode: click more icon on the certification row, then Edit
+      // certRowIndex 0 = current/topmost cert, 1+ = previous certs (descending)
+      const certRowIndex = editData?.certRowIndex ?? 0;
       if (certType === 'Written') {
-        await this.formPage.openWrittenCertificationEdit(0);
+        if (certRowIndex === 0) {
+          await this.formPage.openWrittenCertificationEdit(0);
+        } else {
+          await this.formPage.openPreviousWrittenCertificationEdit(certRowIndex - 1);
+        }
       } else {
         await this.formPage.openVerbalCertificationEdit(0);
       }

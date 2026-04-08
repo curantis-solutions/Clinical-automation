@@ -191,6 +191,26 @@ Before generating code, ask the user:
 
 **CHECKPOINT:** Present the full reuse/extend/create plan to the user. List exactly which methods will be reused, which will be added, and which new files will be created. Ask: "Does this plan look correct?" Do NOT proceed to Phase 5 until the user approves.
 
+### 4b2. Detect Existing Workflows — REUSE Before Creating
+
+Apply the same reuse/extend/create protocol for workflows:
+
+1. Check if `workflows/{module}.workflow.ts` already exists.
+2. **If it exists:** Read it, list methods, mark as REUSE or EXTEND.
+3. **If it does not exist and the test has a multi-step flow that coordinates 2+ page objects:** Create a new workflow.
+
+**When to create a workflow:**
+- The test step involves **3+ sequential page object calls** that form a cohesive operation (e.g., create visit → fill form → complete)
+- The same sequence is likely to be **reused** by other tests in the same module
+- The spec would otherwise contain orchestration logic that belongs in a workflow
+
+**Workflow rules (from `.claude/rules/workflows.md`):**
+- Zero raw locators — delegate everything to page objects
+- Include patient ID / context in error messages
+- Use `expect.toPass()` for polling, not while loops
+
+Include workflows in the CHECKPOINT above — list which workflow methods will be reused, added, or which new workflow files will be created.
+
 ### 4c. Module Generalization — Any Module, Not Just Facilities
 
 When the test case targets a module not yet in the framework:

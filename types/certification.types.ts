@@ -36,4 +36,6 @@ export type CertificationFormData = VerbalCertificationFormData | WrittenCertifi
 
 export interface CertificationEditData {
   reasonForChange: string;
+  /** Which cert row to edit. 0 = current/topmost (default), 1+ = previous certs in descending order */
+  certRowIndex?: number;
 }
