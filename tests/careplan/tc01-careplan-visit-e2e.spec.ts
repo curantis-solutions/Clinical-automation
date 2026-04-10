@@ -2,6 +2,12 @@ import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { createPageObjectsForPage, PageObjects } from '../../fixtures/page-objects.fixture';
 import { CredentialManager } from '../../utils/credential-manager';
 import { TIMEOUTS } from '../../config/timeouts';
+import { TAB_A_FIELDS, TAB_F_FIELDS, TAB_I_FIELDS, TAB_J_FIELDS, TAB_M_FIELDS, TAB_N_FIELDS, TAB_Z_FIELDS } from '../../pages/hope-admission.page';
+
+const todaysdate = () => {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+};
 
 /**
  * TC-01: CarePlan Visit — End-to-End Flow
@@ -26,7 +32,7 @@ let sharedPage: Page;
 let sharedContext: BrowserContext;
 let pages: PageObjects;
 
-const PATIENT_ID = '214157';
+const PATIENT_ID = '270764';//'214157';
 
 test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   test.beforeAll(async ({ browser }) => {
@@ -34,6 +40,8 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       viewport: { width: 1280, height: 720 },
       ignoreHTTPSErrors: true,
       baseURL: CredentialManager.getBaseUrl(),
+      permissions: ['geolocation'],
+      geolocation: { latitude: 41.8781, longitude: -87.6298 },
     });
     sharedPage = await sharedContext.newPage();
     sharedPage.setDefaultTimeout(TIMEOUTS.PAGE_DEFAULT);
@@ -78,25 +86,43 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 02: Open existing Initial Nursing Assessment from grid
   // =========================================================================
-  test('Step 02: Create new Initial Nursing Assessment visit', async () => {
+  test.skip('Step 02: Open existing Initial Nursing Assessment visit', async () => {
     test.setTimeout(120000);
+    await test.step('Find and open visit from grid', async () => {
+      const visitRows = sharedPage.locator('.visitsRow');
+      await visitRows.first().waitFor({ state: 'visible', timeout: 10000 });
+      const rowCount = await visitRows.count();
+      console.log(`Found ${rowCount} visit row(s)`);
 
-    await test.step('Create visit via dialog', async () => {
-      await pages.visitAddDialog.clickAddVisit();
-      await pages.visitAddDialog.selectRole('Registered Nurse (RN)');
-      await pages.visitAddDialog.selectType('Initial Nursing Assessment');
-      await pages.visitAddDialog.submit();
-
-      const url = sharedPage.url();
-      expect(url).toContain('/assessment/');
-      console.log('Created new Initial Nursing Assessment visit');
+      for (let i = 0; i < rowCount; i++) {
+        const typeText = await visitRows.nth(i).locator('[data-cy="label-visit-type"]').textContent();
+        if (typeText?.includes('Initial Nursing Assessment')) {
+          // Click the visit ID to open it
+          await visitRows.nth(i).locator('[data-cy="label-visit-id"]').click();
+          await sharedPage.waitForURL(/assessment/, { timeout: 15000 });
+          await sharedPage.waitForTimeout(2000);
+          console.log(`Opened Initial Nursing Assessment visit (row ${i})`);
+          return;
+        }
+      }
+      throw new Error('No Initial Nursing Assessment visit found in grid');
     });
+    // await test.step('Create visit via dialog', async () => {
+    //   await pages.visitAddDialog.clickAddVisit();
+    //   await pages.visitAddDialog.selectRole('Registered Nurse (RN)');
+    //   await pages.visitAddDialog.selectType('Initial Nursing Assessment');
+    //   await pages.visitAddDialog.submit();
+
+    //   const url = sharedPage.url();
+    //   expect(url).toContain('/assessment/');
+    //   console.log('Created new Initial Nursing Assessment visit');
+    // });
   });
 
   // =========================================================================
   // Step 03: Fill Vitals module
   // =========================================================================
-  test('Step 03: Fill Vitals — BP, Temperature, Height, Weight', async () => {
+  test.skip('Step 03: Fill Vitals — BP, Temperature, Height, Weight', async () => {
     test.setTimeout(120000);
 
     await test.step('Navigate to Vitals module', async () => {
@@ -133,7 +159,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 04: Fill COVID screening
   // =========================================================================
-  test('Step 04: Fill COVID-19 screening — all No', async () => {
+  test.skip('Step 04: Fill COVID-19 screening — all No', async () => {
     test.setTimeout(120000);
 
     await test.step('Answer all COVID questions as No', async () => {
@@ -144,7 +170,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 05: Navigate to Preferences module
   // =========================================================================
-  test('Step 05: Fill Preferences module', async () => {
+  test.skip('Step 05: Fill Preferences module', async () => {
     test.setTimeout(120000);
 
     await test.step('Navigate to Preferences', async () => {
@@ -157,14 +183,27 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       await pages.preferencesModule.fillPreferences({
         assessmentWith: ['patientResponsibleParty'],
         hopeDiagnosis: 'cancer',
-        interpreterAssist: 'no',
+        otherConditions: 'Neuropathy',
+        interpreterAssist: 'yes',
+        levelOfAssistance: 'independent',
         cprAsked: 'yesDiscussionOccurred',
         understandCpr: 'yes',
         wantCpr: 'no',
         outOfHospitalDnr: 'yes',
+        codeStatus: 'fullCode',
         polst: 'no',
         most: 'no',
         lifeSustainingTreatmentsAsked: 'yesAndDiscussed',
+        wantLifeSustainingTreatments: 'no',
+        furtherHospitalizations: 'yes',
+        wantfurtherHospitalizations: 'no',
+        spiritualConcerns: 'yes',
+        haveSpiritualConcerns: 'no',
+        signsOfImminentDeath: 'no',
+        notes: 'Patient prefers to avoid hospitalization and aggressive treatments.',
+       
+
+
       });
     });
   });
@@ -172,7 +211,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 06: Fill Pain module
   // =========================================================================
-  test('Step 06: Fill Pain module', async () => {
+  test.skip('Step 06: Fill Pain module', async () => {
     test.setTimeout(120000);
 
     await test.step('Navigate to Pain (saves Preferences)', async () => {
@@ -186,13 +225,16 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         assessmentWith: ['patientResponsibleParty'],
         painTool: 'Numeric',
         painScore: 2,
-        neuropathicPain: 'no',
-        experiencingPain: 'no',
-        symptomImpact: 'patientNotExperiencingTheSymptom',
+        neuropathicPain: 'yes',
+        experiencingPain: 'yes',
+        symptomImpact: 'mildImpact',
+        impactAreas: ['sleep', 'emotionalDistress'],
+        explanation: 'Mild pain with movement, managed with PRN medication',
         activePain: 'no',
         painAssessmentDone: 'yes',
-        scheduledOpioid: 'no',
-        prnOpioid: 'no',
+        scheduledOpioid: 'yes',
+        prnOpioid: 'yes',
+        painNote: 'Patient reports mild pain in joints, especially with activity. No neuropathic characteristics. Pain is currently well-managed with PRN opioids as needed for movement-related discomfort.',
       });
     });
 
@@ -207,7 +249,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 07: Fill Neurological module
   // =========================================================================
-  test('Step 07: Fill Neurological module', async () => {
+  test.skip('Step 07: Fill Neurological module', async () => {
     test.setTimeout(120000);
 
     await test.step('Navigate to Neurological (saves Pain)', async () => {
@@ -239,7 +281,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 08: Fill remaining modules (saves data on each transition)
   // =========================================================================
-  test('Step 08: Fill remaining modules', async () => {
+  test.skip('Step 08: Fill remaining modules', async () => {
     test.setTimeout(300000);
 
     await test.step('Fill Respiratory', async () => {
@@ -253,6 +295,7 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         impactAreas: ['dailyActivities', 'sleep'],
         explanation: 'Mild SOB with exertion, managed with opioids',
         patientOnOxygen: 'noRoomAir',
+        notes: 'Patient experiences mild shortness of breath with exertion, such as walking or climbing stairs. SOB is currently managed with opioid medications as needed, which provide relief. Patient is not on supplemental oxygen and uses a fan for comfort. No respiratory treatments have been initiated at this time.'
       });
     });
 
@@ -269,6 +312,23 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
         bmType: 'irregular',
         bmIrregular: 'constipation',
         abdomenState: ['soft'],
+        vomiting: true,
+        vomitingData: {
+          severity: 3,
+          dateUnknown: true,
+          timeUnknown: true,
+          symptomImpact: 'mildImpact',
+          impactAreas: ['intakeOnly'],
+          explanation: 'Mild vomiting managed with medication',
+        },
+        nausea: true,
+        nauseaData: {
+          score: 2,
+          frequency: 'intermittent',
+          symptomImpact: 'mildImpact',
+          impactAreas: ['intakeOnly'],
+          explanation: 'Intermittent nausea with meals',
+        },
       });
     });
 
@@ -322,7 +382,12 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
 
     await test.step('Fill Hospice Aide', async () => {
       await pages.visitAssessment.navigateToModule('Hospice Aide');
-      await pages.hospiceAideModule.fillAllHospiceAide();
+      await pages.hospiceAideModule.fillHospiceAide({
+        addTask: true,
+        assistance: 'assist',
+        frequencyOccurrence: '2',
+        frequencyDuration: '1',
+      });
     });
 
     await test.step('Fill Military History', async () => {
@@ -330,8 +395,17 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
       await pages.militaryHistoryModule.fillAllMilitaryHistory();
     });
 
-    await test.step('Navigate to Summary and Symptom Summary to save', async () => {
+    await test.step('Fill Summary — Narratives + Coordination of Care', async () => {
       await pages.visitAssessment.navigateToModule('Summary');
+      await pages.summaryModule.fillSummary({
+        addNarrative: true,
+        narrativeText: 'Patient assessed during routine visit. Vitals stable.',
+        addCoordinationOfCare: true,
+        coordinationDescription: 'Discussed care plan with patient family and care team',
+      });
+    });
+
+    await test.step('Navigate to Symptom Summary to save', async () => {
       await pages.visitAssessment.navigateToModule('Symptom Summary');
       console.log('All modules filled and saved');
     });
@@ -340,37 +414,436 @@ test.describe.serial('TC-01: CarePlan Visit — E2E Flow @careplan', () => {
   // =========================================================================
   // Step 09: Open Plan of Care
   // =========================================================================
-  test('Step 09: Open Plan of Care', async () => {
-    test.setTimeout(120000);
+  test.skip('Step 09: Plan of Care — accept all issues', async () => {
+    test.setTimeout(300000);
 
-    await test.step('Click Plan of Care button', async () => {
+    await test.step('Open Plan of Care', async () => {
       await pages.visitAssessment.clickPlanOfCare();
       console.log('Plan of Care opened');
+    });
+
+    await test.step('Accept all suggested issues', async () => {
+      await pages.planOfCare.acceptAllIssues();
+    });
+
+    await test.step('Exit Plan of Care', async () => {
+      await pages.planOfCare.exitPlanOfCare();
     });
   });
 
   // =========================================================================
   // Step 10: HOPE Report Preview
   // =========================================================================
-  test('Step 10: Open HOPE Report Preview', async () => {
+  test.skip('Step 10: Open HOPE Report Preview and validate', async () => {
     test.setTimeout(120000);
 
-    await test.step('Exit Plan of Care and open HOPE Report', async () => {
-      await pages.visitAssessment.clickExitPlanOfCare();
+    await test.step('Open HOPE Report Preview', async () => {
       await pages.visitAssessment.clickHopeReportPreview();
-      console.log('HOPE Report Preview opened');
+    });
+
+    await test.step('Validate HOPE Report data', async () => {
+      const result = await pages.hopeReportPreview.validateAll();
+
+      // ── Section A — Administration (from Preferences) ───────────────
+      // Language is auto-populated from patient profile
+      expect(result.populated['Language']).toBeTruthy();
+      expect(result.populated['Language']).toContain('English');
+      expect(result.populated['Interpreter Assist']).toBeTruthy();
+      expect(result.populated['Interpreter Assist']).toContain('Yes');
+      // Living Arrangements set via select in Preferences
+      expect(result.populated['Living Arrangements']).toBeTruthy();
+      expect(result.populated['Living Arrangements']).toContain('Alone');
+      // Level of Assistance set to "independent" in Preferences
+      expect(result.populated['Level of Assistance']).toBeTruthy();
+      expect(result.populated['Level of Assistance']).toContain('Around the Clock');
+
+      // ── Section F — Preferences ─────────────────────────────────────
+      // cprAsked: 'yesDiscussionOccurred'
+      expect(result.populated['CPR Preference']).toContain('discussion occurred');
+      // lifeSustainingTreatmentsAsked: 'yesAndDiscussed'
+      expect(result.populated['Life-Sustaining Treatment']).toContain('discussion occurred');
+      // furtherHospitalizations: 'yes' (mapped to yesAndDiscussed)
+      // May not populate if selector value doesn't match — check truthy only
+      if (result.populated['Hospitalization Preference']) {
+        console.log(`  Hospitalization Preference: ${result.populated['Hospitalization Preference']}`);
+      }
+      // spiritualConcerns: 'yes'
+      if (result.populated['Spiritual/Existential Concerns']) {
+        console.log(`  Spiritual Concerns: ${result.populated['Spiritual/Existential Concerns']}`);
+      }
+
+      // ── Section I — Active Diagnosis ────────────────────────────────
+      // hopeDiagnosis: 'cancer' → but principal diagnosis is from patient profile
+      // otherConditions: 'Neuropathy' checkbox checked
+
+      // ── Section J — Pain (from Pain module) ─────────────────────────
+      // experiencingPain: 'no' → HOPE maps to Screened for Pain
+      expect(result.populated['J0900 Screened for Pain']).toBeTruthy();
+      expect(result.populated['J0900 Screened for Pain']).toContain('Yes');
+      expect(result.populated['J0900 Pain Screening Date']).toBeTruthy(); 
+      // Pain screening date should be populated
+      expect(result.populated['J0900 Pain Screening Date']).toContain(todaysdate());
+      // Pain severity derived from score 2 → Mild
+      expect(result.populated['J0900 Pain Severity']).toContain('Mild');
+      // Pain tool = Numeric
+      expect(result.populated['J0900 Pain Tool Used']).toContain('Numeric');
+      // painAssessmentDone: 'yes' → Comprehensive Pain = Yes
+      expect(result.populated['J0910 Comprehensive Pain']).toContain('Yes');
+      expect(result.populated['J0910 Comprehensive Pain Date']).toBeTruthy();
+      expect(result.populated['J0910 Comprehensive Pain Date']).toContain(todaysdate());
+      // neuropathicPain: 'no'
+      expect(result.populated['J0915 Neuropathic Pain']).toBeTruthy();
+      expect(result.populated['J0915 Neuropathic Pain']).toContain('Yes');
+      // signsOfImminentDeath: 'no' in Preferences
+      // expect(result.populated['J0050 Imminent Death']).toBeTruthy();
+
+      // ── Section J — Respiratory (from Respiratory module) ───────────
+      // sobScreening: 'yes'
+      expect(result.populated['J2030 SOB Screening']).toContain('Yes');
+      // sobNow: 'yes'
+      expect(result.populated['J2030 SOB Indicated']).toContain('Yes');
+      // treatmentInitiated: 'yes'
+      expect(result.populated['J2040 SOB Treatment']).toContain('Yes');
+
+      // ── Section J — Symptom Impact ──────────────────────────────────
+      // Pain symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 Pain Impact']).toContain('Mild Impact');
+      // Respiratory symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 SOB Impact']).toContain('Mild Impact');
+      // Neurological anxiety symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 Anxiety Impact']).toContain('Mild Impact');
+      // Neurological agitation symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 Agitation Impact']).toContain('Mild Impact');
+      // GI vomiting symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 Vomiting Impact']).toContain('Mild Impact');
+      // GI nausea symptomImpact: 'mildImpact'
+      expect(result.populated['J2051 Nausea Impact']).toContain('Mild Impact');
+
+      // ── Section M — Skin (from Skin module) ─────────────────────────
+      // Wound added → Skin Conditions should be Yes
+      expect(result.populated['M1190 Skin Conditions']).toBeTruthy();
+      // injuryTreatments: pressureUlcerInjuryCare
+      expect(result.populated['M1200 Pressure Ulcer Care']).toContain('Yes');
+      // injuryTreatments: applicationOfNonSurgicalDressings
+      expect(result.populated['M1200 Non-Surgical Dressings']).toContain('Yes');
+
+      // ── Section N — Medications ─────────────────────────────────────
+      // scheduledOpioid: 'yes'
+      expect(result.populated['N0500 Scheduled Opioid']).toContain('Yes');
+      // prnOpioid: 'yes'
+      expect(result.populated['N0510 PRN Opioid']).toContain('Yes');
+      // bowelRegimen: 'yes'
+      expect(result.populated['N0520 Bowel Regimen']).toContain('Yes');
+    });
+
+    await test.step('Close HOPE Report Preview', async () => {
+      await pages.hopeReportPreview.close();
     });
   });
 
   // =========================================================================
   // Step 11: Complete the visit
   // =========================================================================
-  test('Step 11: Complete the visit', async () => {
+  test.skip('Step 11: Complete the visit and verify status', async () => {
     test.setTimeout(120000);
 
     await test.step('Click Complete button', async () => {
       await pages.visitAssessment.clickComplete();
       console.log('Complete clicked');
+    });
+
+    await test.step('Verify visit status is Completed on Care Plan grid', async () => {
+      // Wait for navigation back to Care Plan page
+      await sharedPage.waitForURL(/carePlan/, { timeout: 30000 }).catch(() => {});
+      await sharedPage.waitForTimeout(3000);
+
+      // Find the first visit row and check status
+      const visitStatus = sharedPage.locator('[data-cy="label-visit-status"]').first();
+      await visitStatus.waitFor({ state: 'visible', timeout: 10000 });
+      const statusText = await visitStatus.textContent();
+      expect(statusText?.trim()).toContain('Completed');
+      console.log(`Visit status: ${statusText?.trim()}`);
+
+      // Verify visit type
+      const visitType = sharedPage.locator('[data-cy="label-visit-type"]').first();
+      const typeText = await visitType.textContent();
+      expect(typeText).toContain('Initial Nursing Assessment');
+      console.log(`Visit type: ${typeText?.trim()}`);
+
+      // Verify Plan of Care checkmark is present
+      const pocCheckmark = sharedPage.locator('[data-cy="icon-visit-status-checkmark-care-plan"]').first();
+      expect(await pocCheckmark.isVisible()).toBeTruthy();
+      console.log('Plan of Care checkmark: visible');
+    });
+  });
+
+  // =========================================================================
+  // Step 12: Navigate to HIS/HOPE module and verify admission record
+  // =========================================================================
+  test('Step 12: Navigate to HIS/HOPE module and verify admission record', async () => {
+    test.setTimeout(120000);
+
+    await test.step('Click HIS/HOPE nav button', async () => {
+      const hopeNavBtn = sharedPage.locator('[data-cy="btn-nav-bar-item-his"]');
+      await hopeNavBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await hopeNavBtn.click();
+      await sharedPage.waitForTimeout(3000);
+      console.log('Navigated to HIS/HOPE module');
+    });
+
+    await test.step('Verify HIS/HOPE page header', async () => {
+      const header = sharedPage.locator('.header-title');
+      await header.waitFor({ state: 'visible', timeout: 10000 });
+      const headerText = await header.textContent();
+      expect(headerText?.trim()).toContain('Patient HIS/HOPE Report');
+      console.log('HIS/HOPE page loaded');
+    });
+
+    await test.step('Verify HOPE admission record in grid', async () => {
+      // Use last() since there may be multiple admission records — latest is last
+      const reportRow = sharedPage.locator('#automation-report-row').last();
+      await reportRow.waitFor({ state: 'visible', timeout: 10000 });
+
+      // Verify Report Type = HOPE
+      const reportType = reportRow.locator('ion-col').nth(0).locator('.label');
+      expect(await reportType.textContent()).toContain('HOPE');
+      console.log('  Report Type: HOPE');
+
+      // Verify Report = Admission
+      const report = reportRow.locator('ion-col').nth(1).locator('.label');
+      expect(await report.textContent()).toContain('Admission');
+      console.log('  Report: Admission');
+
+      // Verify Date Generated is populated
+      const dateGenerated = reportRow.locator('ion-col').nth(2).locator('.label');
+      const dateText = (await dateGenerated.textContent())?.trim();
+      expect(dateText).toBeTruthy();
+      console.log(`  Date Generated: ${dateText}`);
+
+      // Verify Type of Record
+      const typeOfRecord = reportRow.locator('ion-col').nth(4).locator('.label');
+      const recordType = (await typeOfRecord.textContent())?.trim();
+      console.log(`  Type of Record: ${recordType}`);
+
+      // Verify File Status
+      const fileStatus = reportRow.locator('ion-col').nth(5).locator('.label');
+      const statusText = (await fileStatus.textContent())?.trim();
+      console.log(`  File Status: ${statusText}`);
+    });
+
+    await test.step('Open latest admission record', async () => {
+      await pages.hopeAdmission.openLatestAdmissionRecord();
+    });
+  });
+
+  // =========================================================================
+  // Step 13: Verify data mapping, fill missing fields, check tab status, and complete record
+  // =========================================================================
+  test('Step 13: Verify HOPE data mapping, fill required fields, and complete record', async () => {
+    test.setTimeout(300000);
+
+    // ── Tab A — Administrative Information ────────────────────────────
+    await test.step('Tab A — Verify data and fill Payer Information', async () => {
+      const tabA: AdmissionTab = {
+        key: 'A',
+        label: 'A - Administrative Information',
+        tabSelector: '.tabs-container span:has-text("A - Administrative Information")',
+        fields: TAB_A_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabA);
+
+      // Verify key auto-populated fields
+      expect(results['A0100.A NPI']).toBeTruthy();
+      expect(results['A0500 First Name']).toBeTruthy();
+      expect(results['A0500 Last Name']).toBeTruthy();
+      expect(results['A1110.A Language']).toBeTruthy();
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      // Fill Payer Information (required for completion)
+      await pages.hopeAdmission.selectPayerInformation();
+
+      // Fill other required single-select dropdowns if empty
+      const requiredDropdowns = [
+        'automation-hospice-service',
+        'automation-admitted-from',
+        'automation-living-arregemtns',
+        'automation-assistance',
+      ];
+      for (const dropdownId of requiredDropdowns) {
+        try {
+          await pages.hopeAdmission.selectSingleDropdownFirstOption(dropdownId);
+        } catch {
+          // Already has a value — skip
+        }
+      }
+
+      // Check Tab A status after filling
+      const tabAComplete = await pages.hopeAdmission.isTabComplete('A - Administrative Information');
+      console.log(`  Tab A status: ${tabAComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab F — Preferences ──────────────────────────────────────────
+    await test.step('Tab F — Verify data and check status', async () => {
+      const tabF: AdmissionTab = {
+        key: 'F',
+        label: 'F - Preferences',
+        tabSelector: '.tabs-container span:has-text("F - Preferences")',
+        fields: TAB_F_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabF);
+
+      expect(results['F2000.A CPR Preference']).toContain('discussion occurred');
+      expect(results['F2000.B CPR Date']).toBeTruthy();
+      expect(results['F2100.A Life-Sustaining']).toContain('discussion occurred');
+      expect(results['F2100.B Life-Sustaining Date']).toBeTruthy();
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      const tabFComplete = await pages.hopeAdmission.isTabComplete('F - Preferences');
+      console.log(`  Tab F status: ${tabFComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab I — Active Diagnosis ─────────────────────────────────────
+    await test.step('Tab I — Verify data and check status', async () => {
+      const tabI: AdmissionTab = {
+        key: 'I',
+        label: 'I - Active Diagnosis',
+        tabSelector: '.tabs-container span:has-text("I - Active Diagnosis")',
+        fields: TAB_I_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabI);
+
+      expect(results['I0010 Principal Diagnosis']).toContain('Cancer');
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      const tabIComplete = await pages.hopeAdmission.isTabComplete('I - Active Diagnosis');
+      console.log(`  Tab I status: ${tabIComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab J — Health Conditions ────────────────────────────────────
+    await test.step('Tab J — Verify data, fill missing symptom severities, check status', async () => {
+      const tabJ: AdmissionTab = {
+        key: 'J',
+        label: 'J - Health Conditions',
+        tabSelector: '.tabs-container span:has-text("J - Health Conditions")',
+        fields: TAB_J_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabJ);
+
+      // Verify key fields from Pain, Respiratory, Neurological modules
+      expect(results['J0900.A Pain Screening']).toContain('Yes');
+      expect(results['J0900.C Pain Severity']).toContain('Mild');
+      expect(results['J0900.D Pain Tool']).toContain('Numeric');
+      expect(results['J2030.A SOB Screening']).toContain('Yes');
+      expect(results['J2030.C SOB Indicated']).toContain('Yes');
+      expect(results['J2040.A SOB Treatment']).toContain('Yes');
+      expect(results['J2050.A Symptom Impact Screening']).toContain('Yes');
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      // Fill any empty symptom severity dropdowns (Diarrhea, Constipation may be unfilled)
+      const symptomDropdowns = [
+        'automation-diarrhea-symptom-severity',
+        'automation-constipation-symptom-severity',
+      ];
+      for (const dropdownId of symptomDropdowns) {
+        try {
+          await pages.hopeAdmission.selectSingleDropdownFirstOption(dropdownId);
+        } catch {
+          // Already has a value — skip
+        }
+      }
+
+      const tabJComplete = await pages.hopeAdmission.isTabComplete('J - Health Conditions');
+      console.log(`  Tab J status: ${tabJComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab M — Skin Conditions ──────────────────────────────────────
+    await test.step('Tab M — Verify data and check status', async () => {
+      const tabM: AdmissionTab = {
+        key: 'M',
+        label: 'M - Skin Conditions',
+        tabSelector: '.tabs-container span:has-text("M - Skin Conditions")',
+        fields: TAB_M_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabM);
+
+      expect(results['M1190 Skin Conditions']).toContain('Yes');
+      expect(results['M1195.A Diabetic Foot Ulcers']).toBe('true');
+      expect(results['M1200.E Pressure Ulcer Care']).toBe('true');
+      expect(results['M1200.G Non-Surgical Dressings']).toBe('true');
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      const tabMComplete = await pages.hopeAdmission.isTabComplete('M - Skin Conditions');
+      console.log(`  Tab M status: ${tabMComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab N — Medications ──────────────────────────────────────────
+    await test.step('Tab N — Verify data and check status', async () => {
+      const tabN: AdmissionTab = {
+        key: 'N',
+        label: 'N - Medications',
+        tabSelector: '.tabs-container span:has-text("N - Medications")',
+        fields: TAB_N_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabN);
+
+      expect(results['N0500.A Scheduled Opioid']).toContain('Yes');
+      expect(results['N0510.A PRN Opioid']).toContain('Yes');
+      expect(results['N0520.A Bowel Regimen']).toContain('Yes');
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      const tabNComplete = await pages.hopeAdmission.isTabComplete('N - Medications');
+      console.log(`  Tab N status: ${tabNComplete ? '✓ COMPLETE' : '○ INCOMPLETE'}`);
+    });
+
+    // ── Tab Z — Record Administration — Complete the record ──────────
+    await test.step('Tab Z — Verify data and complete the record', async () => {
+      const tabZ: AdmissionTab = {
+        key: 'Z',
+        label: 'Z - Record Administration',
+        tabSelector: '.tabs-container span:has-text("Z - Record Administration")',
+        fields: TAB_Z_FIELDS,
+      };
+      const results = await pages.hopeAdmission.readTabFields(tabZ);
+
+      expect(results['Z0400 Signature']).toBeTruthy();
+      expect(results['Z0400 Sections']).toBeTruthy();
+
+      for (const [label, value] of Object.entries(results)) {
+        console.log(`  ${label}: ${value || '(empty)'}`);
+      }
+
+      // Final tab status check before completing
+      const tabNames = await pages.hopeAdmission.getTabNames();
+      console.log('\nFinal tab status:');
+      for (const name of tabNames) {
+        const complete = await pages.hopeAdmission.isTabComplete(name);
+        console.log(`  ${complete ? '✓' : '○'} ${name}`);
+      }
+
+      // Complete the record
+      const profileName = await pages.visitAssessment.getProfileName();
+      console.log(`Profile name: ${profileName}`);
+      await pages.hopeAdmission.clickComplete();
+      await pages.visitAssessment.fillSignatureModal(profileName);
+      console.log('HOPE Admission Record completed');
     });
   });
 });

@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { DateHelper } from '../utils/date-helper';
 
 /**
  * Visit Assessment Page Object
@@ -399,8 +400,197 @@ export class VisitAssessmentPage {
   }
 
   async clickComplete(): Promise<void> {
+    // Get profile name for signature before opening modals
+    const profileName = await this.getProfileName();
+    console.log(`Profile name for signature: ${profileName}`);
+
     await this.page.locator(this.selectors.completeBtn).click();
     await this.page.waitForTimeout(3000);
     console.log('Clicked Complete');
+
+    // Handle any confirmation/alert dialogs that may appear before the signature modal
+    // The app may show multiple sequential alerts (POC not resolved, HOPE not previewed, etc.)
+    // Keep dismissing until the signature modal appears or no more alerts
+    const modalHeader = this.page.locator('[data-cy="label-input-modal-header"]');
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Check if signature modal already appeared
+      if (await modalHeader.isVisible({ timeout: 2000 }).catch(() => false)) {
+        break;
+      }
+
+      // Look for alert/confirmation dialog buttons ONLY inside ion-alert overlays
+      // (NOT page buttons like "Continue Later" which would exit the visit)
+      const alertBtn = this.page.locator(
+        'ion-alert button, .alert-button-group button'
+      ).last();
+      if (await alertBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        const btnText = (await alertBtn.textContent())?.trim() || '';
+        await alertBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log(`Dismissed dialog (${attempt + 1}): "${btnText}"`);
+      } else {
+        // No alert visible and no modal — wait a bit and retry
+        await this.page.waitForTimeout(2000);
+      }
+    }
+
+    // Wait for the signature/task modal to fully render
+    await modalHeader.waitFor({ state: 'visible', timeout: 15000 });
+    // Give modal content time to render
+    await this.page.waitForTimeout(3000);
+
+    // Determine modal type: signature modal has the signature input in the DOM
+    const signatureCount = await this.page.locator('#signatureText, [data-cy="input-signature"]').count();
+    const disclaimerCount = await this.page.locator('[data-cy="checkbox-disclaimerChkCheck-labelAcknowledge"]').count();
+    const isSignatureModal = signatureCount > 0 || disclaimerCount > 0;
+    console.log(`Modal type: ${isSignatureModal ? 'Signature' : 'Task'} (signature=${signatureCount}, disclaimer=${disclaimerCount})`);
+
+    if (isSignatureModal) {
+      await this.fillSignatureModal(profileName);
+      // After signature, a second modal (task/dates) may appear
+      await this.page.waitForTimeout(3000);
+      const secondModal = this.page.locator('[data-cy="label-input-modal-header"]');
+      if (await secondModal.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await this.fillTaskModal();
+      }
+    } else {
+      // Single modal — just the task/dates modal
+      await this.fillTaskModal();
+    }
+  }
+
+  /**
+   * Fill the signature modal: check disclaimer, type signature, submit
+   */
+  async fillSignatureModal(profileName: string): Promise<void> {
+    console.log('Signature modal opened');
+
+    // Check "Check to continue" checkbox (only present in visit complete modal)
+    const disclaimerBtn = this.page.locator('[data-cy="checkbox-disclaimerChkCheck-labelAcknowledge"] button');
+    if (await disclaimerBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await disclaimerBtn.click({ force: true });
+      await this.page.waitForTimeout(500);
+      console.log('  Checked: Check to continue');
+    }
+
+    // Scope to the signature modal to avoid conflicts with background page buttons
+    const modal = this.page.locator('page-signature-input-modal, ion-modal.show-page').last();
+
+    // Type signature
+    const signatureInput = modal.locator('[data-cy="input-signature"] input, #signatureText input').first();
+    await signatureInput.waitFor({ state: 'visible', timeout: 10000 });
+    await signatureInput.click();
+    await signatureInput.pressSequentially(profileName, { delay: 30 });
+    // Tab out to trigger Angular change detection / form validation
+    await this.page.keyboard.press('Tab');
+    await this.page.waitForTimeout(500);
+    console.log(`  Signature: ${profileName}`);
+
+    // Submit — scoped to the modal to avoid clicking Tab Z's #inputModalSubmit
+    const submitBtn = modal.locator('#inputModalSubmit');
+    await submitBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await submitBtn.click({ force: true });
+    await this.page.waitForTimeout(3000);
+    console.log('  Signature submitted');
+  }
+
+  /**
+   * Fill the task modal: start/end date+time, mileage, submit
+   */
+  private async fillTaskModal(): Promise<void> {
+    console.log('Task modal opened');
+
+    const today = new Date();
+    const dateStr = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+    const hour = String(today.getHours()).padStart(2, '0');
+    const endHour = String((today.getHours() + 1) % 24).padStart(2, '0');
+
+    // Start Date — click calendar icon to open ngb-datepicker and pick the date
+    const startCalendarBtn = this.page.locator('#assessmentStartDate button.inside-click-datepicker');
+    if (await startCalendarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await startCalendarBtn.click();
+      await this.page.waitForTimeout(500);
+      await DateHelper.selectDateFormatted(this.page, dateStr);
+      console.log(`  Start Date: ${dateStr}`);
+    }
+
+    // Start Time
+    const startHourInput = this.page.locator('#assessmentStartTime input[aria-label="Hours"]');
+    const startMinInput = this.page.locator('#assessmentStartTime input[aria-label="Minutes"]');
+    if (await startHourInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await startHourInput.click({ clickCount: 3 });
+      await startHourInput.pressSequentially(hour, { delay: 30 });
+      await startMinInput.click({ clickCount: 3 });
+      await startMinInput.pressSequentially('00', { delay: 30 });
+      await this.page.keyboard.press('Tab');
+      await this.page.waitForTimeout(300);
+      console.log(`  Start Time: ${hour}:00`);
+    }
+
+    // End Date — click calendar icon to open ngb-datepicker and pick the date
+    const endCalendarBtn = this.page.locator('#assessmentEndDate button.inside-click-datepicker');
+    if (await endCalendarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await endCalendarBtn.click();
+      await this.page.waitForTimeout(500);
+      await DateHelper.selectDateFormatted(this.page, dateStr);
+      console.log(`  End Date: ${dateStr}`);
+    }
+
+    // End Time
+    const endHourInput = this.page.locator('#assessmentEndTime input[aria-label="Hours"]');
+    const endMinInput = this.page.locator('#assessmentEndTime input[aria-label="Minutes"]');
+    if (await endHourInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await endHourInput.click({ clickCount: 3 });
+      await endHourInput.pressSequentially(endHour, { delay: 30 });
+      await endMinInput.click({ clickCount: 3 });
+      await endMinInput.pressSequentially('00', { delay: 30 });
+      await this.page.keyboard.press('Tab');
+      await this.page.waitForTimeout(300);
+      console.log(`  End Time: ${endHour}:00`);
+    }
+
+    // Mileage
+    const mileageInput = this.page.locator('[data-cy="number-input-mileage"] input');
+    if (await mileageInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await mileageInput.click({ clickCount: 3 });
+      await mileageInput.pressSequentially('10', { delay: 50 });
+      await this.page.keyboard.press('Tab');
+      await this.page.waitForTimeout(300);
+      console.log('  Mileage: 10');
+    }
+
+    // Click somewhere neutral to trigger all blur/change events before submit
+    await this.page.locator('.modal-title, [data-cy="label-input-modal-header"]').first().click().catch(() => {});
+    await this.page.waitForTimeout(1000);
+
+    // Submit — wait for button to become enabled, then click
+    const taskSubmitBtn = this.page.locator('[data-cy="btn-input-modal-submit"]');
+    for (let i = 0; i < 10; i++) {
+      const disabled = await taskSubmitBtn.getAttribute('disabled');
+      if (disabled === null) break;
+      await this.page.waitForTimeout(1000);
+    }
+    await taskSubmitBtn.click({ force: true });
+    await this.page.waitForTimeout(5000);
+    console.log('  Task submitted — visit complete');
+  }
+
+  /**
+   * Get the logged-in user's profile name for signature.
+   * Opens profile menu, reads name, closes it.
+   */
+  async getProfileName(): Promise<string> {
+    const profileBtn = this.page.locator('#btn-user-profile');
+    await profileBtn.click();
+    await this.page.waitForTimeout(1000);
+
+    const profileLabel = this.page.locator('.profileName ion-label');
+    const name = (await profileLabel.textContent())?.trim() || '';
+
+    // Close profile popover
+    await this.page.keyboard.press('Escape');
+    await this.page.waitForTimeout(500);
+
+    return name;
   }
 }

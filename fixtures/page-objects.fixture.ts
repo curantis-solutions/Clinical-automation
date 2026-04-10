@@ -57,6 +57,9 @@ import { HospiceAideModulePage } from '../pages/visit-modules/hospice-aide.page'
 import { MilitaryHistoryModulePage } from '../pages/visit-modules/military-history.page';
 import { SummaryModulePage } from '../pages/visit-modules/summary.page';
 import { SymptomSummaryModulePage } from '../pages/visit-modules/symptom-summary.page';
+import { PlanOfCarePage } from '../pages/plan-of-care.page';
+import { HopeReportPreviewPage } from '../pages/hope-report-preview.page';
+import { HopeAdmissionPage } from '../pages/hope-admission.page';
 
 /**
  * Collection of all page objects
@@ -104,6 +107,9 @@ export interface PageObjects {
   militaryHistoryModule: MilitaryHistoryModulePage;
   summaryModule: SummaryModulePage;
   symptomSummaryModule: SymptomSummaryModulePage;
+  planOfCare: PlanOfCarePage;
+  hopeReportPreview: HopeReportPreviewPage;
+  hopeAdmission: HopeAdmissionPage;
 }
 
 // Define fixture types
@@ -164,6 +170,9 @@ function createPageObjectsForPage(page: Page): PageObjects {
     militaryHistoryModule: new MilitaryHistoryModulePage(page),
     summaryModule: new SummaryModulePage(page),
     symptomSummaryModule: new SymptomSummaryModulePage(page),
+    planOfCare: new PlanOfCarePage(page),
+    hopeReportPreview: new HopeReportPreviewPage(page),
+    hopeAdmission: new HopeAdmissionPage(page),
   };
 }
 

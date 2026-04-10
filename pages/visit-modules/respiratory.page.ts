@@ -13,9 +13,12 @@ export interface RespiratoryData {
   sobScreening?: string;
   /** SOB right now: yes/no (appears when screening=yes) */
   sobNow?: string;
+  /**date of screening */
+  screeningDate?: string;
   /** Treatment initiated: yes/patientDecline/no (appears when screening=yes) */
   treatmentInitiated?: string;
   /** Treatment types: opioids, otherMedications, oxygen, nonMedications */
+  treatmentDate?: string;
   treatmentTypes?: string[];
   /** Symptom impact: notImpacted, mildImpact, moderateImpact, severeImpact, patientNotExperiencingTheSymptom */
   symptomImpact?: string;
@@ -47,6 +50,7 @@ export interface RespiratoryData {
   ventSupport?: boolean;
   nebulizer?: boolean;
   apnea?: boolean;
+  notes?: string;
 }
 
 /**
@@ -92,6 +96,7 @@ export class RespiratoryModulePage {
     ventSupportToggle: '[data-cy="toggle-hasVentilatorySupport"]',
     nebulizerToggle: '[data-cy="toggle-hasBreathingTreatmentNebulizer"]',
     apneaToggle: '[data-cy="toggle-hasApnea"]',
+    notesAddBtn: '[data-cy="button-notes-add"]',
   };
 
   constructor(page: Page) {
@@ -209,8 +214,41 @@ export class RespiratoryModulePage {
     if (data.ventSupport) { await this.clickElement(this.selectors.ventSupportToggle); console.log('  Vent Support: toggle ON'); }
     if (data.nebulizer) { await this.clickElement(this.selectors.nebulizerToggle); console.log('  Nebulizer: toggle ON'); }
     if (data.apnea) { await this.clickElement(this.selectors.apneaToggle); console.log('  Apnea: toggle ON'); }
+   if (data.notes) {
+      const notesBtn = this.page.locator(this.selectors.notesAddBtn);
+      if (await notesBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await notesBtn.click({ force: true });
+        await this.page.waitForTimeout(2000);
 
+        // Category (required) — select first option
+        await this.selectFirstOption('[data-cy="select-notesCategory"]');
+        console.log('  Notes Category: first option');
+
+        // Description textarea
+        const textarea = this.page.locator('page-input-modal ion-textarea textarea');
+        if (await textarea.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await textarea.click();
+          await textarea.pressSequentially(data.notes, { delay: 30 });
+          await this.page.waitForTimeout(500);
+        }
+
+        // Submit modal
+        const submitBtn = this.page.locator('[data-cy="btn-input-modal-submit"]');
+        await submitBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log(`  Notes: ${data.notes.substring(0, 50)}...`);
+      }
+    }
     console.log('Respiratory module filled');
+  }
+  private async selectFirstOption(selectLocator: string): Promise<void> {
+    const el = this.page.locator(selectLocator);
+    if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await el.click();
+      await this.page.waitForTimeout(1000);
+      await this.page.locator('ion-popover.select-popover ion-item').first().click({ force: true });
+      await this.page.waitForTimeout(500);
+    }
   }
 
   /** Convenience: fill with SOB=No, O2=Room Air */

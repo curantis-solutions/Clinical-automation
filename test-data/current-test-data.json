@@ -7,5 +7,12 @@
   "testRunTimestamp": "2026-01-19T21:21:59.870Z",
   "patientIds": {
     "noImpact": 213600
-  }
+  },
+  "ordersPatientId": "270764",
+  "ordersPatientIdUpdatedAt": "2026-04-01T23:43:08.838Z",
+  "hopePatientIds": {
+    "hopePatientA": "214066",
+    "hopePatientB": "214157"
+  },
+  "hopePatientIdsUpdatedAt": "2026-04-08T00:00:00.000Z"
 }

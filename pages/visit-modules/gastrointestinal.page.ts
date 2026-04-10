@@ -3,6 +3,48 @@ import { Page } from '@playwright/test';
 /**
  * Data interface for Gastrointestinal module
  */
+/**
+ * Data for Vomiting card (expanded when toggle ON)
+ */
+export interface VomitingData {
+  /** Severity score 0-10 (range tick index) */
+  severity?: number;
+  /** Description of contents text */
+  contents?: string;
+  /** Frequency numerator */
+  frequencyNumerator?: string;
+  /** Frequency denominator */
+  frequencyDenominator?: string;
+  /** Check "Unknown" for date instead of picking */
+  dateUnknown?: boolean;
+  /** Check "Unknown" for time instead of picking */
+  timeUnknown?: boolean;
+  /** Amount text */
+  amount?: string;
+  /** Symptom impact: notImpacted/mildImpact/moderateImpact/severeImpact/patientNotExperiencingTheSymptom */
+  symptomImpact?: string;
+  /** Impact area checkboxes: intakeOnly, dailyActivities, fatigueWeakness, sleep, concentration, etc. */
+  impactAreas?: string[];
+  /** Explanation text */
+  explanation?: string;
+}
+
+/**
+ * Data for Nausea card (expanded when toggle ON)
+ */
+export interface NauseaData {
+  /** Score 0-10 (range tick index) */
+  score?: number;
+  /** Frequency: constant/intermittent */
+  frequency?: string;
+  /** Symptom impact: notImpacted/mildImpact/moderateImpact/severeImpact/patientNotExperiencingTheSymptom */
+  symptomImpact?: string;
+  /** Impact area checkboxes */
+  impactAreas?: string[];
+  /** Explanation text */
+  explanation?: string;
+}
+
 export interface GastrointestinalData {
   /** Bowel regimen: yes/no/patientDeclinedTreatment */
   bowelRegimen?: string;
@@ -20,6 +62,10 @@ export interface GastrointestinalData {
   ileostomy?: boolean;
   vomiting?: boolean;
   nausea?: boolean;
+  /** Vomiting card data (fill after toggle ON) */
+  vomitingData?: VomitingData;
+  /** Nausea card data (fill after toggle ON) */
+  nauseaData?: NauseaData;
 }
 
 /**
@@ -56,6 +102,27 @@ export class GastrointestinalModulePage {
     ileostomyToggle: '[data-cy="toggle-ileostomy"]',
     vomitingToggle: '[data-cy="toggle-vomiting"]',
     nauseaToggle: '[data-cy="toggle-nausea"]',
+
+    // ── Vomiting Card (expanded) ────────────────────────────────────
+    vomitingCard: '[data-cy="card-header-vomiting"]',
+    vomitingSeverityRange: '[data-cy="input-vomitingSeverity-range"]',
+    vomitingContents: '[data-cy="input-vomitingContents"]',
+    vomitingFreqNumerator: '[data-cy="number-input-vomitingFrequencyNumerator"]',
+    vomitingFreqDenominator: '[data-cy="number-input-vomitingFrequencyDenominator"]',
+    vomitingFreqUnit: '[data-cy="select-vomitingFrequencyUnit"]',
+    vomitingDateUnknown: '[data-cy="checkbox-unknown-vomitingMostRecent-date"]',
+    vomitingTimeUnknown: '[data-cy="checkbox-unknown-vomitingMostRecent-time"]',
+    vomitingAmount: '[data-cy="input-vomitingAmount"]',
+
+    // ── Nausea Card (expanded) ──────────────────────────────────────
+    nauseaCard: '[data-cy="card-header-nausea"]',
+    nauseaSeverityRange: '[data-cy="input-nauseaSeverity-range"]',
+    nauseaFrequencyRadio: (answer: string) => `[data-cy="radio-nauseaFrequency-${answer}"]`,
+
+    // ── Shared Symptom Impact (scoped by card) ──────────────────────
+    symptomImpactRadio: (answer: string) => `[data-cy="radio-rankSymptomImpact-${answer}"]`,
+    impactAreaCheckbox: (area: string) => `[data-cy="checkbox-explainSymptomImpactCheck-${area}"]`,
+    explanationTextarea: '[data-cy="input-explanation"]',
   };
 
   constructor(page: Page) {
@@ -136,10 +203,192 @@ export class GastrointestinalModulePage {
     if (data.distention) { await this.clickElement(this.selectors.distentionToggle); console.log('  Distention: ON'); }
     if (data.colostomy) { await this.clickElement(this.selectors.colostomyToggle); console.log('  Colostomy: ON'); }
     if (data.ileostomy) { await this.clickElement(this.selectors.ileostomyToggle); console.log('  Ileostomy: ON'); }
-    if (data.vomiting) { await this.clickElement(this.selectors.vomitingToggle); console.log('  Vomiting: ON'); }
-    if (data.nausea) { await this.clickElement(this.selectors.nauseaToggle); console.log('  Nausea: ON'); }
+    if (data.vomiting) {
+      await this.clickElement(this.selectors.vomitingToggle);
+      console.log('  Vomiting: ON');
+      await this.page.waitForTimeout(1000);
+      if (data.vomitingData) {
+        await this.fillVomiting(data.vomitingData);
+      }
+    }
+    if (data.nausea) {
+      await this.clickElement(this.selectors.nauseaToggle);
+      console.log('  Nausea: ON');
+      await this.page.waitForTimeout(1000);
+      if (data.nauseaData) {
+        await this.fillNausea(data.nauseaData);
+      }
+    }
 
     console.log('Gastrointestinal module filled');
+  }
+
+  /**
+   * Get the card container for scoping selectors to a specific card
+   */
+  private getCardScope(cardHeaderSelector: string) {
+    return this.page.locator(cardHeaderSelector).locator('xpath=ancestor::ion-card');
+  }
+
+  /**
+   * Set a range slider score by clicking the nth range-tick within a scoped range element
+   */
+  private async setRangeScore(rangeSelector: string, score: number): Promise<void> {
+    const range = this.page.locator(rangeSelector);
+    if (await range.isVisible({ timeout: 3000 }).catch(() => false)) {
+      // Ticks are 0-indexed: tick at index `score` maps to value `score`
+      const tick = range.locator('.range-tick').nth(score);
+      if (await tick.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await tick.click({ force: true });
+        await this.page.waitForTimeout(500);
+      }
+    }
+  }
+
+  async fillVomiting(data: VomitingData): Promise<void> {
+    const card = this.getCardScope(this.selectors.vomitingCard);
+
+    // Severity range (0-10)
+    if (data.severity !== undefined) {
+      await this.setRangeScore(this.selectors.vomitingSeverityRange, data.severity);
+      console.log(`  Vomiting Severity: ${data.severity}`);
+    }
+
+    // Description of contents
+    if (data.contents) {
+      const textarea = card.locator(this.selectors.vomitingContents);
+      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await textarea.click();
+        await textarea.pressSequentially(data.contents, { delay: 30 });
+        console.log(`  Vomiting Contents: ${data.contents}`);
+      }
+    }
+
+    // Frequency numerator/denominator
+    if (data.frequencyNumerator) {
+      const input = this.page.locator(this.selectors.vomitingFreqNumerator);
+      if (await input.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await input.click({ clickCount: 3 });
+        await this.page.keyboard.press('Backspace');
+        await input.pressSequentially(data.frequencyNumerator, { delay: 50 });
+      }
+    }
+    if (data.frequencyDenominator) {
+      const input = this.page.locator(this.selectors.vomitingFreqDenominator);
+      if (await input.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await input.click({ clickCount: 3 });
+        await this.page.keyboard.press('Backspace');
+        await input.pressSequentially(data.frequencyDenominator, { delay: 50 });
+      }
+    }
+    if (data.frequencyNumerator || data.frequencyDenominator) {
+      // Select first frequency unit
+      await this.selectFirstIonOption(this.selectors.vomitingFreqUnit);
+      console.log(`  Vomiting Frequency: ${data.frequencyNumerator || ''}x per ${data.frequencyDenominator || ''}`);
+    }
+
+    // Date/Time unknown checkboxes
+    if (data.dateUnknown) {
+      await this.clickElement(this.selectors.vomitingDateUnknown);
+      console.log('  Vomiting Date: Unknown');
+    }
+    if (data.timeUnknown) {
+      await this.clickElement(this.selectors.vomitingTimeUnknown);
+      console.log('  Vomiting Time: Unknown');
+    }
+
+    // Amount
+    if (data.amount) {
+      const input = card.locator(this.selectors.vomitingAmount);
+      if (await input.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await input.click();
+        await input.pressSequentially(data.amount, { delay: 30 });
+        console.log(`  Vomiting Amount: ${data.amount}`);
+      }
+    }
+
+    // Symptom Impact — scoped to vomiting card
+    if (data.symptomImpact) {
+      const radio = card.locator(this.selectors.symptomImpactRadio(data.symptomImpact));
+      const item = radio.locator('xpath=ancestor::ion-item');
+      await item.click({ force: true });
+      await this.page.waitForTimeout(500);
+      console.log(`  Vomiting Symptom Impact: ${data.symptomImpact}`);
+    }
+
+    // Impact areas — scoped to vomiting card
+    if (data.impactAreas) {
+      for (const area of data.impactAreas) {
+        const cb = card.locator(this.selectors.impactAreaCheckbox(area));
+        const item = cb.locator('xpath=ancestor::ion-item');
+        if (await item.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await item.click({ force: true });
+          await this.page.waitForTimeout(300);
+        }
+      }
+      console.log(`  Vomiting Impact Areas: ${data.impactAreas.join(', ')}`);
+    }
+
+    // Explanation — scoped to vomiting card
+    if (data.explanation) {
+      const textarea = card.locator(this.selectors.explanationTextarea);
+      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await textarea.click();
+        await textarea.pressSequentially(data.explanation, { delay: 30 });
+        console.log(`  Vomiting Explanation: ${data.explanation}`);
+      }
+    }
+  }
+
+  async fillNausea(data: NauseaData): Promise<void> {
+    const card = this.getCardScope(this.selectors.nauseaCard);
+
+    // Score range (0-10)
+    if (data.score !== undefined) {
+      await this.setRangeScore(this.selectors.nauseaSeverityRange, data.score);
+      console.log(`  Nausea Score: ${data.score}`);
+    }
+
+    // Frequency (constant/intermittent)
+    if (data.frequency) {
+      const radio = card.locator(this.selectors.nauseaFrequencyRadio(data.frequency));
+      const item = radio.locator('xpath=ancestor::ion-item');
+      await item.click({ force: true });
+      await this.page.waitForTimeout(500);
+      console.log(`  Nausea Frequency: ${data.frequency}`);
+    }
+
+    // Symptom Impact — scoped to nausea card
+    if (data.symptomImpact) {
+      const radio = card.locator(this.selectors.symptomImpactRadio(data.symptomImpact));
+      const item = radio.locator('xpath=ancestor::ion-item');
+      await item.click({ force: true });
+      await this.page.waitForTimeout(500);
+      console.log(`  Nausea Symptom Impact: ${data.symptomImpact}`);
+    }
+
+    // Impact areas — scoped to nausea card
+    if (data.impactAreas) {
+      for (const area of data.impactAreas) {
+        const cb = card.locator(this.selectors.impactAreaCheckbox(area));
+        const item = cb.locator('xpath=ancestor::ion-item');
+        if (await item.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await item.click({ force: true });
+          await this.page.waitForTimeout(300);
+        }
+      }
+      console.log(`  Nausea Impact Areas: ${data.impactAreas.join(', ')}`);
+    }
+
+    // Explanation — scoped to nausea card
+    if (data.explanation) {
+      const textarea = card.locator(this.selectors.explanationTextarea);
+      if (await textarea.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await textarea.click();
+        await textarea.pressSequentially(data.explanation, { delay: 30 });
+        console.log(`  Nausea Explanation: ${data.explanation}`);
+      }
+    }
   }
 
   /** Convenience: fill with defaults */

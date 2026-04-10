@@ -212,6 +212,57 @@ export class TestDataManager {
     return this.getData().receivedBy;
   }
 
+  // ============================================
+  // HOPE Patient ID Persistence
+  // ============================================
+
+  /**
+   * Save a HOPE patient ID to the shared runtime file.
+   * Called by the HOPE patient setup spec after admission.
+   * @param patientKey - Key name (e.g., 'hopePatientA', 'hopePatientB')
+   * @param patientId - The admitted patient's MRN/ID
+   */
+  static setHopePatientId(patientKey: string, patientId: string | number): void {
+    const id = String(patientId);
+
+    let data: Record<string, any> = {};
+    try {
+      if (fs.existsSync(RUNTIME_DATA_PATH)) {
+        data = JSON.parse(fs.readFileSync(RUNTIME_DATA_PATH, 'utf-8'));
+      }
+    } catch { /* start fresh */ }
+
+    if (!data.hopePatientIds) {
+      data.hopePatientIds = {};
+    }
+    data.hopePatientIds[patientKey] = id;
+    data.hopePatientIdsUpdatedAt = new Date().toISOString();
+    fs.writeFileSync(RUNTIME_DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    console.log(`✅ Saved HOPE patient "${patientKey}": ${id} to ${RUNTIME_DATA_PATH}`);
+  }
+
+  /**
+   * Get a HOPE patient ID from the shared runtime file.
+   * @param patientKey - Key name (e.g., 'hopePatientA', 'hopePatientB')
+   * @returns Patient ID string
+   * @throws If the patient key is not found
+   */
+  static getHopePatientId(patientKey: string): string {
+    try {
+      if (fs.existsSync(RUNTIME_DATA_PATH)) {
+        const data = JSON.parse(fs.readFileSync(RUNTIME_DATA_PATH, 'utf-8'));
+        if (data?.hopePatientIds?.[patientKey]) {
+          return String(data.hopePatientIds[patientKey]);
+        }
+      }
+    } catch { /* fall through */ }
+
+    throw new Error(
+      `HOPE patient "${patientKey}" not found in ${RUNTIME_DATA_PATH}. ` +
+      'Run tc00-hope-patient-setup.spec.ts first.'
+    );
+  }
+
   /**
    * Intercept the /users/ API response to detect the logged-in user's role.
    * Must be called BEFORE login — the app fires GET /users/ during dashboard load.

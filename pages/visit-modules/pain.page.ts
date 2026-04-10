@@ -226,9 +226,18 @@ export class PainModulePage {
       console.log(`  Opioid Comment: ${data.opioidComment}`);
     }
 
-    // PRN Opioid
+    // PRN Opioid — force click bypassing aria-disabled check (Ionic radio quirk)
     if (data.prnOpioid) {
-      await this.clickElement(this.selectors.prnOpioidRadio(data.prnOpioid));
+      const prnRadio = this.page.locator(this.selectors.prnOpioidRadio(data.prnOpioid));
+      await prnRadio.scrollIntoViewIfNeeded().catch(() => {});
+      await this.page.waitForTimeout(500);
+      const btn = prnRadio.locator('button');
+      if (await btn.count() > 0) {
+        await btn.click({ force: true });
+      } else {
+        await prnRadio.click({ force: true });
+      }
+      await this.page.waitForTimeout(300);
       console.log(`  PRN Opioid: ${data.prnOpioid}`);
     }
     if (data.prnComment) {

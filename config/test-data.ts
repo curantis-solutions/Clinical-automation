@@ -49,7 +49,7 @@ export const testData: Record<string, EnvironmentTestData> = {
       facilityALF: 'Allen Assisted Facility',
       receivedBy: 'MDcypress cypresslast',
       facilityPNF: 'Automation Facility',
-      ordersPatientId: '216267',
+      ordersPatientId: '214157',
     },
 
     // Integrum tenant in QA
