@@ -260,6 +260,30 @@ export class DateHelper {
   }
 
   /**
+   * Calculate HUV2 (HOPE Update Visit 2) due date
+   * HUV2 is due 30 days after admission
+   * @param admissionDate - Admission date string in MM/DD/YYYY format
+   * @returns HUV2 due date in MM/DD/YYYY format
+   */
+  static calculateHUV2Date(admissionDate: string): string {
+    const date = this.parseDate(admissionDate);
+    date.setDate(date.getDate() + 30);
+    return this.formatDateToMMDDYYYY(date);
+  }
+
+  /**
+   * Calculate SFV (Symptom Follow-up Visit) due date
+   * SFV is due within 2 days of the triggering visit
+   * @param triggeringVisitDate - Date of the visit that triggered SFV in MM/DD/YYYY format
+   * @returns SFV due date in MM/DD/YYYY format
+   */
+  static calculateSFVDueDate(triggeringVisitDate: string): string {
+    const date = this.parseDate(triggeringVisitDate);
+    date.setDate(date.getDate() + 2);
+    return this.formatDateToMMDDYYYY(date);
+  }
+
+  /**
    * Calculate date by adding days to a base date
    * @param baseDate - Base date string in MM/DD/YYYY format
    * @param daysToAdd - Number of days to add (can be negative)
